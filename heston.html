@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Heston Surface — LSE Style</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+:root{--bg:#000000;--label:#888888;--white:#ffffff;--green:#16c784;--red:#dc2626;--border:#333333;--track:#262626;--fill:#4f46e5;--sans:'Inter','Helvetica Neue',Roboto,sans-serif;--mono:'Roboto Mono','Fira Code',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--label);overflow:hidden;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:2px}
+.tier1{display:flex;align-items:center;justify-content:space-between;height:38px;padding:0 18px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
+.tier1-left{display:flex;gap:22px;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+.tier1-left a{color:var(--label);text-decoration:none;transition:color .15s}
+.tier1-left a:hover,.tier1-left a.active{color:var(--white)}
+.tier1-right{display:flex;align-items:center;gap:12px;font-size:9px;font-family:var(--mono);color:#555}
+.tier1-right .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(22,199,132,.8)}
+.tier2{display:flex;align-items:stretch;height:40px;border-bottom:1px solid #1a1a1a;padding:0 8px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.tier2::-webkit-scrollbar{display:none}
+.tier2 a{position:relative;display:flex;align-items:center;padding:0 16px;font-size:10px;font-weight:500;color:var(--label);text-decoration:none;white-space:nowrap;transition:color .15s}
+.tier2 a:hover{color:#c0c0c0}
+.tier2 a.active{color:var(--white)}
+.tier2 a.active::after{content:'';position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--white)}
+.header{position:relative;z-index:6;display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 18px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
+.h-title{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--white)}
+.h-title .i{margin-top:1px;width:14px;height:14px;border:1px solid #555;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:400;color:#777;letter-spacing:0}
+.badge{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.14em;padding:2px 7px;background:var(--green);color:#000;border-radius:2px}
+.badge.put{background:var(--red);color:#000}
+.btn-reset{display:flex;align-items:center;gap:7px;font-family:var(--sans);font-size:10px;font-weight:500;color:var(--white);background:none;border:1px solid var(--border);border-radius:4px;padding:6px 12px;cursor:pointer;transition:all .15s}
+.btn-reset:hover{border-color:#666}
+.btn-reset svg{width:13px;height:13px}
+.main{position:relative;flex:1;min-height:0}
+#plot{position:absolute;inset:0}
+.hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;font-size:9px;letter-spacing:.04em;color:#555;white-space:nowrap;pointer-events:none;font-family:var(--mono)}
+.panel{position:absolute;top:16px;z-index:7;background:#000;border:1px solid var(--border);border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.7)}
+.panel.left{left:16px;width:280px;max-height:calc(100% - 32px);overflow-y:auto}
+.panel.right{right:16px;width:264px;display:flex;flex-direction:column;max-height:calc(100% - 32px)}
+.acc-head{width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:none;border:none;cursor:pointer;color:var(--white);font-family:var(--sans);font-size:10px;font-weight:600;letter-spacing:.14em;text-align:left}
+.acc-head svg{color:#666;transition:transform .25s}
+.acc.open .acc-head svg.chev{transform:rotate(180deg)}
+.acc-body-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s ease}
+.acc.open .acc-body-wrap{grid-template-rows:1fr}
+.acc-body{overflow:hidden;min-height:0}
+.acc-body-inner{padding:4px 14px 16px}
+.acc+.acc{border-top:1px solid #1a1a1a}
+.seg{display:flex;gap:6px;margin-bottom:14px}
+.seg button{flex:1;font-family:var(--sans);font-size:10px;font-weight:600;letter-spacing:.12em;padding:8px 0;border-radius:16px;cursor:pointer;transition:all .15s;border:1px solid var(--white)}
+.seg button.off{background:#000;color:var(--white)}
+.seg button.on{background:var(--white);color:#000}
+.param-label{font-size:9px;font-weight:500;letter-spacing:.14em;color:var(--label);margin-bottom:8px;text-transform:uppercase}
+.sl-row{margin-bottom:13px}
+.sl-row .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.sl-row .top label{font-family:var(--sans);font-size:9px;font-weight:500;letter-spacing:.12em;color:var(--label)}
+.sl-row .top output{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--white)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:2px;background:var(--track);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--white);cursor:grab}
+input[type=range]::-webkit-slider-thumb:active{cursor:grabbing}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--white);border:none}
+.dd{position:relative;margin-bottom:14px}
+.dd-btn{width:100%;display:flex;align-items:center;gap:9px;background:#0a0a0a;border:1px solid var(--border);border-radius:4px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:10px;cursor:pointer}
+.dd-btn:hover{border-color:#555}
+.dd-btn svg{margin-left:auto;color:#666}
+.sw{width:34px;height:10px;border-radius:5px;flex-shrink:0}
+.sw-pl{background:linear-gradient(90deg,#dc2626,#000 50%,#16c784)}
+.sw-mono{background:linear-gradient(90deg,#0a0a0a,#3a3a3a 50%,#fafafa)}
+.sw-neon{background:linear-gradient(90deg,#0f4c5c,#22d3ee 60%,#00ff88)}
+.dd-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#0a0a0a;border:1px solid var(--border);border-radius:4px;z-index:20;overflow:hidden;display:none}
+.dd-menu.open{display:block}
+.dd-opt{display:flex;align-items:center;gap:9px;padding:8px 10px;font-family:var(--mono);font-size:10px;color:var(--label);cursor:pointer}
+.dd-opt:hover{background:#141414;color:var(--white)}
+.dd-opt.on{color:var(--white)}
+.sw-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+.sw-row span{font-family:var(--sans);font-size:9px;font-weight:500;letter-spacing:.12em;color:var(--label);text-transform:uppercase}
+.sw-row input{display:none}
+.swt{width:34px;height:20px;background:#262626;border-radius:10px;position:relative;cursor:pointer;transition:background .2s}
+.swt::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#888;transition:all .2s}
+.sw-row input:checked+.swt{background:var(--green)}
+.sw-row input:checked+.swt::after{left:16px;background:#000}
+.stat-list{padding-bottom:10px}
+.stat-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #131313}
+.stat-row:last-child{border-bottom:none}
+.stat-row .k{font-family:var(--sans);font-size:8.5px;font-weight:500;letter-spacing:.14em;color:var(--label);text-transform:uppercase}
+.stat-row .v{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--white)}
+.stat-row .v.price{color:var(--green)}
+.scale{padding:12px 14px 14px;border-top:1px solid #1a1a1a;margin-top:auto}
+.scale .lbl{display:flex;justify-content:space-between;font-size:8px;font-weight:600;letter-spacing:.14em;color:var(--label);margin-bottom:8px}
+.scale .bar{height:8px;border-radius:4px;background:linear-gradient(90deg,#7f1d1d,#dc2626 25%,#000 50%,#16c784 75%,#14532d)}
+.scale .ends{display:flex;justify-content:space-between;font-family:var(--mono);font-size:8px;color:#555;margin-top:5px;letter-spacing:.12em}
+</style>
+</head>
+<body>
+<div class="tier1">
+    <div class="tier1-left"><a href="index.html">Platform</a><a href="#">Models</a><a href="#">Risk</a><a href="#">Research</a><a href="#">Support</a></div>
+    <div class="tier1-right"><span class="dot"></span> LSE · DESK 09 · SESSION LIVE</div>
+</div>
+<div class="tier2">
+    <a href="black-scholes.html">Black-Scholes Option Pricing</a>
+    <a href="heston.html" class="active">Heston Stochastic Volatility</a>
+    <a href="black-litterman.html">Black-Litterman Model</a>
+    <a href="monte-carlo.html">Monte Carlo Portfolio Simulation</a>
+    <a href="apt.html">Arbitrage Pricing Theory</a>
+</div>
+<div class="header">
+    <div class="h-title">3D HESTON PRICE SURFACE <span class="i">i</span><span class="badge" id="optBadge">CALL</span></div>
+    <div style="display:flex;gap:8px"><button class="btn-reset" id="backBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Back</button><button class="btn-reset" id="resetView"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>Reset View</button></div>
+</div>
+<div class="main">
+    <div id="plot"></div>
+    <aside class="panel left">
+        <div class="acc open">
+            <button class="acc-head">⚙ PARAMETERS <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="acc-body-wrap"><div class="acc-body"><div class="acc-body-inner">
+                <div class="param-label">Option Type</div>
+                <div class="seg" id="segOpt"><button data-v="call" class="on">CALL</button><button data-v="put" class="off">PUT</button></div>
+                <div class="param-label">Surface Metric</div>
+                <div class="seg" id="segMetric"><button data-v="price" class="on">PRICE</button><button data-v="delta" class="off">DELTA</button></div>
+                <div class="sl-row"><div class="top"><label>SPOT (S)</label><output id="vS0">$100.00</output></div><input type="range" id="S0" min="10" max="300" step="1" value="100"></div>
+                <div class="sl-row"><div class="top"><label>STRIKE (K)</label><output id="vK">$100.00</output></div><input type="range" id="K" min="10" max="300" step="1" value="100"></div>
+                <div class="sl-row"><div class="top"><label>TIME (T)</label><output id="vT">1.00y</output></div><input type="range" id="T" min="1" max="200" step="1" value="100"></div>
+                <div class="sl-row"><div class="top"><label>RISK-FREE (R)</label><output id="vR">5.0%</output></div><input type="range" id="r" min="-5" max="20" step="1" value="5"></div>
+                <div class="sl-row"><div class="top"><label>INIT VOL (√v₀)</label><output id="vV0">20.0%</output></div><input type="range" id="v0" min="1" max="80" step="1" value="20"></div>
+                <div class="sl-row"><div class="top"><label>REVERSION (κ)</label><output id="vKappa">2.00</output></div><input type="range" id="kappa" min="1" max="100" step="1" value="20"></div>
+                <div class="sl-row"><div class="top"><label>LONG VOL (√θ)</label><output id="vTheta">20.0%</output></div><input type="range" id="theta" min="1" max="80" step="1" value="20"></div>
+                <div class="sl-row"><div class="top"><label>VOL OF VOL (σv)</label><output id="vSigv">30.0%</output></div><input type="range" id="sigv" min="1" max="200" step="1" value="30"></div>
+                <div class="sl-row"><div class="top"><label>CORRELATION (ρ)</label><output id="vRho">-0.50</output></div><input type="range" id="rho" min="-100" max="100" step="1" value="-50"></div>
+            </div></div></div>
+        </div>
+        <div class="acc open">
+            <button class="acc-head">◎ DISPLAY <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="acc-body-wrap"><div class="acc-body"><div class="acc-body-inner">
+                <div class="param-label">Color Scheme</div>
+                <div class="dd" id="dd"><button class="dd-btn" id="ddBtn"><span class="sw sw-pl" id="ddSw"></span><span id="ddName">P&amp;L</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <div class="dd-menu" id="ddMenu"><div class="dd-opt on" data-v="pl"><span class="sw sw-pl"></span>P&amp;L</div><div class="dd-opt" data-v="mono"><span class="sw sw-mono"></span>MONO</div><div class="dd-opt" data-v="neon"><span class="sw sw-neon"></span>NEON</div></div></div>
+                <label class="sw-row"><span>WIREFRAME</span><input type="checkbox" id="swWire" checked><i class="swt"></i></label>
+                <label class="sw-row"><span>GRID</span><input type="checkbox" id="swGrid" checked><i class="swt"></i></label>
+                <label class="sw-row"><span>AXES</span><input type="checkbox" id="swAxes" checked><i class="swt"></i></label>
+                <label class="sw-row"><span>AUTO ROTATE</span><input type="checkbox" id="swRot"><i class="swt"></i></label>
+            </div></div></div>
+        </div>
+    </aside>
+    <aside class="panel right">
+        <div class="acc-body-inner">
+            <div class="stat-list">
+                <div class="stat-row"><span class="k">ATM Call (1Y)</span><span class="v price" id="s-atm">—</span></div>
+                <div class="stat-row"><span class="k">Call</span><span class="v price" id="s-call">—</span></div>
+                <div class="stat-row"><span class="k">Put</span><span class="v price" id="s-put">—</span></div>
+                <div class="stat-row"><span class="k">Forward Vol √E[vT]</span><span class="v" id="s-fvol">—</span></div>
+                <div class="stat-row"><span class="k">Feller 2κθ/σv²</span><span class="v" id="s-feller">—</span></div>
+                <div class="stat-row"><span class="k">Delta</span><span class="v" id="s-delta">—</span></div>
+                <div class="stat-row"><span class="k">Gamma</span><span class="v" id="s-gamma">—</span></div>
+                <div class="stat-row"><span class="k">Vega</span><span class="v" id="s-vega">—</span></div>
+                <div class="stat-row"><span class="k">Theta</span><span class="v" id="s-theta">—</span></div>
+                <div class="stat-row"><span class="k">Rho</span><span class="v" id="s-rho">—</span></div>
+            </div>
+        </div>
+        <div class="scale"><div class="lbl"><span id="scaleLbl">DELTA SCALE</span><span></span></div><div class="bar"></div><div class="ends"><span>LOW</span><span>HIGH</span></div></div>
+    </aside>
+    <div class="hint">Drag to rotate • Scroll to zoom • Right-click to pan • Resolution: 30²</div>
+</div>
+<script>
+/* ═════════ COMPLEX ARITHMETIC ═════════ */
+const ca=(a,b)=>[a[0]+b[0],a[1]+b[1]];
+const cs=(a,b)=>[a[0]-b[0],a[1]-b[1]];
+const cm=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]];
+const cd=(a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return[(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d]};
+const ce=(z)=>{const e=Math.exp(z[0]);return[e*Math.cos(z[1]),e*Math.sin(z[1])]};
+const cl=(z)=>[Math.log(Math.hypot(z[0],z[1])),Math.atan2(z[1],z[0])];
+const csq=(z)=>{const r=Math.hypot(z[0],z[1]);return[Math.sqrt(Math.max(0,(r+z[0])/2)),Math.sign(z[1]||0)*Math.sqrt(Math.max(0,(r-z[0])/2))]};
+
+/* ═════════ HESTON CHARACTERISTIC FUNCTION ═════════ */
+function cf(v,a){ /* v = [re,im] exponent var; a={S0,K,T,r,v0,kappa,theta,sigv,rho} */
+    const {v0,kappa,theta,sigv,rho}=a;
+    const iv=[-v[1],v[0]];
+    const A=cs([kappa,0],cm([rho*sigv,0],iv));
+    const v2=cm(v,v);
+    const B=cm([sigv*sigv,0],ca(v2,iv));
+    const d=csq(ca(cm(A,A),B));
+    const g=cd(cs(A,d),ca(A,d));
+    const E=ce([-d[0]*a.T,-d[1]*a.T]);
+    const D=cm(cd(cs(A,d),[sigv*sigv,0]),cd(cs([1,0],E),cs([1,0],cm(g,E))));
+    const C=cm([kappa/(sigv*sigv),0],cs(cm(cs(A,d),[a.T,0]),cm([2,0],cl(cd(cs([1,0],cm(g,E)),cs([1,0],g))))));
+    const arg=ca(ca(C,cm(D,[v0,0])),cm([0,1],cm(v,[Math.log(a.S0)+a.r*a.T,0])));
+    return ce(arg);
+}
+const cf1=u=>cd(cf([0,u-1],cfArgs),cf([0,-1],cfArgs));
+const cf2=u=>cf([0,u],cfArgs);
+let cfArgs=null;
+
+function hestonIntegrand(u,fn){
+    if(u===0)return 0;
+    const phi=fn(u);
+    const iu=cd(phi,[0,u]);
+    const e=[Math.cos(-u*Math.log(cfArgs.K)),Math.sin(-u*Math.log(cfArgs.K))];
+    const prod=cm(e,iu);
+    return prod[0];
+}
+function simpson(fn,a,b,n){
+    const h=(b-a)/n;let s=fn(a)+fn(b);
+    for(let i=1;i<n;i++)s+=fn(a+i*h)*(i%2?4:2);
+    return s*h/3;
+}
+function hestonOpts(o){
+    return{S0:o.S0||1,K:o.K||1,T:o.T||1,r:o.r!==undefined?o.r:rR(),v0:o.v0!==undefined?o.v0:v0R(),
+        kappa:o.kappa!==undefined?o.kappa:kappaR(),theta:o.theta!==undefined?o.theta:thetaR(),
+        sigv:o.sigv!==undefined?o.sigv:sigvR(),rho:o.rho!==undefined?o.rho:rhoR()};
+}
+function hIntegrate(U,N,mode){
+    const P1=0.5+simpson(u=>hestonIntegrand(u,cf1),0,U,N)/Math.PI;
+    if(mode==='p1')return P1;
+    const P2=0.5+simpson(u=>hestonIntegrand(u,cf2),0,U,N)/Math.PI;
+    const disc=Math.exp(-cfArgs.r*cfArgs.T);
+    const C=cfArgs.S0*P1-cfArgs.K*disc*P2;
+    const P=C-cfArgs.S0+cfArgs.K*disc;
+    return{C,P,delta:P1,deltaP:P1-1};
+}
+function hestonP1(S,K,T,o){cfArgs=hestonOpts(Object.assign({S0:S,K,T},o||{}));return hIntegrate(120,96,'p1')}
+function hestonPrice(S,K,T,o){cfArgs=hestonOpts(Object.assign({S0:S,K,T},o||{}));return hIntegrate(120,96,'both')}
+function rR(){return sliders.r.value/100}
+function v0R(){return Math.pow(sliders.v0.value/100,2)}
+function kappaR(){return sliders.kappa.value/10}
+function thetaR(){return Math.pow(sliders.theta.value/100,2)}
+function sigvR(){return sliders.sigv.value/100}
+function rhoR(){return sliders.rho.value/100}
+
+/* ═════════ STATE ═════════ */
+const $=id=>document.getElementById(id);
+const state={opt:'call',metric:'price',scheme:'pl',wire:true,grid:true,axes:true,rot:false};
+const sliders={S0:$('S0'),K:$('K'),T:$('T'),r:$('r'),v0:$('v0'),kappa:$('kappa'),theta:$('theta'),sigv:$('sigv'),rho:$('rho')};
+Object.values(sliders).forEach(el=>{
+    const paint=()=>{const p=(el.value-el.min)/(el.max-el.min)*100;el.style.background=`linear-gradient(90deg,#4f46e5 ${p}%,#262626 ${p}%)`};
+    paint();el.addEventListener('input',paint);
+});
+const CMAP={pl:[[0,'#7f1d1d'],[0.18,'#dc2626'],[0.4,'#3a0a0a'],[0.5,'#000000'],[0.62,'#052e16'],[0.85,'#16c784'],[1,'#14532d']],mono:[[0,'#0a0a0a'],[0.4,'#2a2a2a'],[0.65,'#71717a'],[1,'#fafafa']],neon:[[0,'#0f4c5c'],[0.45,'#0e7490'],[0.75,'#2dd4bf'],[1,'#00ff88']]};
+
+function surfVal(s,t){
+    const p={K:sliders.K.value};
+    if(state.metric==='delta'){const d=hestonP1(s,p.K,t);return state.opt==='call'?d:d-1;}
+    const m=hestonPrice(s,p.K,t);return state.opt==='call'?m.C:m.P;
+}
+function buildGrid(K){
+    const N=26,x0=K*0.4,x1=K*1.6,y0=0.05,y1=1.6;
+    const xs=[],ys=[],zs=[];
+    for(let i=0;i<N;i++){xs[i]=x0+(x1-x0)*i/(N-1);
+        for(let j=0;j<N;j++){const t=y0+(y1-y0)*j/(N-1);ys[j]=t;zs[j]=zs[j]||[];zs[j][i]=surfVal(xs[i],t);}}
+    return{xs,ys,zs};
+}
+
+/* ═════════ PLOT ═════════ */
+const CAMERA_DEFAULT={eye:{x:1.8,y:-1.8,z:1.2}};
+function renderPlot(){
+    const g=buildGrid(sliders.K.value);
+    const ax=t=>({title:{text:t,font:{family:'Roboto Mono',size:10,color:'#666'}},
+        gridcolor:state.grid?'#222222':'rgba(0,0,0,0)',zerolinecolor:'#222222',showbackground:false,
+        linecolor:state.axes?'#333333':'rgba(0,0,0,0)',showgrid:state.grid,visible:state.axes,
+        showticklabels:true,tickfont:{family:'Roboto Mono',size:8,color:'#555'}});
+    const lay={margin:{l:0,r:0,t:0,b:0},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
+        font:{family:'Roboto Mono',color:'#888'},
+        scene:{xaxis:ax('SPOT'),yaxis:ax('TIME'),zaxis:ax(state.metric.toUpperCase()),
+            camera:CAMERA_DEFAULT,aspectmode:'manual',aspectratio:{x:1.15,y:1.0,z:0.85}}};
+    const trace={type:'surface',x:g.xs,y:g.ys,z:g.zs,colorscale:CMAP[state.scheme],name:state.opt.toUpperCase(),showscale:false,
+        contours:{x:{show:state.wire,color:'#111111',width:1},y:{show:state.wire,color:'#111111',width:1},z:{show:false}}};
+    Plotly.react('plot',[trace],lay,{displayModeBar:false,responsive:true,scrollZoom:true});
+}
+
+/* ═════════ STATS ═════════ */
+function updateStats(){
+    const S=+sliders.S0.value,K=+sliders.K.value,T=sliders.T.value/100;
+    const m=hestonPrice(S,K,T);
+    const atm=hestonPrice(S,S,1);
+    const v0=v0R(),kap=kappaR(),th=thetaR(),sv=sigvR();
+    const fvol=Math.sqrt(th+(v0-th)*Math.exp(-kap*T));
+    const feller=2*kap*th/(sv*sv);
+    const dS=Math.max(S*0.002,0.05),dv0=Math.max(v0*0.005,1e-4),dT=0.01,dr=0.0005;
+    const gamma=(hestonPrice(S+dS,K,T).C-2*m.C+hestonPrice(S-dS,K,T).C)/(dS*dS);
+    const vega=2*Math.sqrt(v0)*(hestonPrice(S,K,T,{v0:v0+dv0}).C-m.C)/dv0;
+    const theta=-(hestonPrice(S,K,T+dT).C-hestonPrice(S,K,T-dT).C)/(2*dT);
+    const rho=(hestonPrice(S,K,T,{r:rR()+dr}).C-m.C)/dr;
+    $('s-atm').textContent='$'+(state.opt==='call'?atm.C:atm.P).toFixed(2);
+    $('s-call').textContent='$'+m.C.toFixed(2);
+    $('s-put').textContent='$'+m.P.toFixed(2);
+    $('s-fvol').textContent=(fvol*100).toFixed(1)+'%';
+    $('s-feller').textContent=feller.toFixed(2)+(feller>1?' ✓':' ⚠');
+    $('s-delta').textContent=(state.opt==='call'?m.delta:m.deltaP).toFixed(4);
+    $('s-gamma').textContent=gamma.toFixed(4);
+    $('s-vega').textContent=vega.toFixed(3);
+    $('s-theta').textContent=theta.toFixed(3);
+    $('s-rho').textContent=rho.toFixed(3);
+    $('scaleLbl').textContent=state.metric==='delta'?'DELTA SCALE':'PRICE SCALE';
+}
+
+/* ═════════ MASTER UPDATE ═════════ */
+let plotTimer=null;
+function schedulePlot(){clearTimeout(plotTimer);plotTimer=setTimeout(()=>{if(window.Plotly)renderPlot();},100)}
+function update(){
+    const S=+sliders.S0.value,K=+sliders.K.value,T=sliders.T.value/100;
+    $('vS0').textContent='$'+S.toFixed(2);
+    $('vK').textContent='$'+K.toFixed(2);
+    $('vT').textContent=T.toFixed(2)+'y';
+    $('vR').textContent=(rR()*100).toFixed(1)+'%';
+    $('vV0').textContent=(sliders.v0.value)+'.0%';
+    $('vKappa').textContent=kappaR().toFixed(2);
+    $('vTheta').textContent=sliders.theta.value+'.0%';
+    $('vSigv').textContent=(sigvR()*100).toFixed(1)+'%';
+    $('vRho').textContent=rhoR().toFixed(2);
+    updateStats();
+    schedulePlot();
+}
+
+/* ═════════ AUTO ROTATE ═════════ */
+let rotTimer=null;
+function startRot(){if(rotTimer)return;rotTimer=setInterval(()=>{
+    const gd=$('plot');
+    if(gd&&gd._fullLayout&&gd._fullLayout.scene){
+        const cam=gd._fullLayout.scene.camera||CAMERA_DEFAULT;
+        const a=Math.atan2(cam.eye.y,cam.eye.x)+0.012,r=Math.hypot(cam.eye.x,cam.eye.y);
+        Plotly.relayout('plot',{scene:{camera:{eye:{x:r*Math.cos(a),y:r*Math.sin(a),z:cam.eye.z}}}});
+    }},40);}
+function stopRot(){clearInterval(rotTimer);rotTimer=null}
+
+/* ═════════ EVENTS ═════════ */
+function bindSeg(id,onChange){document.querySelectorAll('#'+id+' button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('#'+id+' button').forEach(x=>{x.classList.remove('on');x.classList.add('off')});
+    b.classList.add('on');b.classList.remove('off');onChange(b.dataset.v);}));}
+bindSeg('segOpt',v=>{state.opt=v;$('optBadge').textContent=v.toUpperCase();$('optBadge').classList.toggle('put',v==='put');update();});
+bindSeg('segMetric',v=>{state.metric=v;update();});
+Object.values(sliders).forEach(el=>el.addEventListener('input',update));
+Object.values(sliders).forEach(el=>el.addEventListener('change',()=>{clearTimeout(plotTimer);if(window.Plotly)renderPlot();}));
+$('swWire').addEventListener('change',e=>{state.wire=e.target.checked;if(window.Plotly)renderPlot()});
+$('swGrid').addEventListener('change',e=>{state.grid=e.target.checked;if(window.Plotly)renderPlot()});
+$('swAxes').addEventListener('change',e=>{state.axes=e.target.checked;if(window.Plotly)renderPlot()});
+$('swRot').addEventListener('change',e=>{state.rot=e.target.checked;state.rot?startRot():stopRot()});
+const ddMenu=$('ddMenu');
+$('ddBtn').addEventListener('click',e=>{e.stopPropagation();ddMenu.classList.toggle('open')});
+document.addEventListener('click',()=>ddMenu.classList.remove('open'));
+document.querySelectorAll('.dd-opt').forEach(o=>o.addEventListener('click',e=>{e.stopPropagation();
+    state.scheme=o.dataset.v;document.querySelectorAll('.dd-opt').forEach(x=>x.classList.toggle('on',x===o));
+    $('ddName').textContent=o.dataset.v==='pl'?'P&L':o.dataset.v.toUpperCase();ddMenu.classList.remove('open');if(window.Plotly)renderPlot();}));
+$('resetView').addEventListener('click',()=>{stopRot();state.rot=false;$('swRot').checked=false;
+    if(window.Plotly){Plotly.relayout('plot',{scene:{camera:CAMERA_DEFAULT}});renderPlot();}});
+$('backBtn').addEventListener('click',()=>{if(document.referrer)history.back();else location.href='index.html';});
+document.querySelectorAll('.acc-head').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('open')));
+window.addEventListener('resize',()=>{if(window.Plotly)renderPlot()});
+window.addEventListener('load',()=>{if(window.Plotly)renderPlot()});
+if(!window.Plotly){$('plot').style.display='none';const d=document.createElement('div');d.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#555;font-size:11px';d.textContent='Plotly failed to load — check internet connection';document.querySelector('.main').appendChild(d);}
+update();
+</script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Arbitrage Pricing Theory — LSE Style</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+:root{--bg:#000000;--label:#888888;--white:#ffffff;--green:#16c784;--red:#dc2626;--border:#333333;--track:#262626;--fill:#4f46e5;--sans:'Inter','Helvetica Neue',Roboto,sans-serif;--mono:'Roboto Mono','Fira Code',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--label);overflow:hidden;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:2px}
+.tier1{display:flex;align-items:center;justify-content:space-between;height:38px;padding:0 18px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
+.tier1-left{display:flex;gap:22px;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+.tier1-left a{color:var(--label);text-decoration:none;transition:color .15s}
+.tier1-left a:hover,.tier1-left a.active{color:var(--white)}
+.tier1-right{display:flex;align-items:center;gap:12px;font-size:9px;font-family:var(--mono);color:#555}
+.tier1-right .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(22,199,132,.8)}
+.tier2{display:flex;align-items:stretch;height:40px;border-bottom:1px solid #1a1a1a;padding:0 8px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.tier2::-webkit-scrollbar{display:none}
+.tier2 a{position:relative;display:flex;align-items:center;padding:0 16px;font-size:10px;font-weight:500;color:var(--label);text-decoration:none;white-space:nowrap;transition:color .15s}
+.tier2 a:hover{color:#c0c0c0}
+.tier2 a.active{color:var(--white)}
+.tier2 a.active::after{content:'';position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--white)}
+.header{position:relative;z-index:6;display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 18px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
+.h-title{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--white)}
+.h-title .i{margin-top:1px;width:14px;height:14px;border:1px solid #555;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:400;color:#777;letter-spacing:0}
+.badge{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.14em;padding:2px 7px;background:var(--green);color:#000;border-radius:2px}
+.badge.put{background:var(--red);color:#000}
+.btn-reset{display:flex;align-items:center;gap:7px;font-family:var(--sans);font-size:10px;font-weight:500;color:var(--white);background:none;border:1px solid var(--border);border-radius:4px;padding:6px 12px;cursor:pointer;transition:all .15s}
+.btn-reset:hover{border-color:#666}
+.btn-reset svg{width:13px;height:13px}
+.main{position:relative;flex:1;min-height:0}
+#plot{position:absolute;inset:0}
+.hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;font-size:9px;letter-spacing:.04em;color:#555;white-space:nowrap;pointer-events:none;font-family:var(--mono)}
+.panel{position:absolute;top:16px;z-index:7;background:#000;border:1px solid var(--border);border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.7)}
+.panel.left{left:16px;width:280px;max-height:calc(100% - 32px);overflow-y:auto}
+.panel.right{right:16px;width:264px;display:flex;flex-direction:column;max-height:calc(100% - 32px)}
+.acc-head{width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:none;border:none;cursor:pointer;color:var(--white);font-family:var(--sans);font-size:10px;font-weight:600;letter-spacing:.14em;text-align:left}
+.acc-head svg{color:#666;transition:transform .25s}
+.acc.open .acc-head svg.chev{transform:rotate(180deg)}
+.acc-body-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s ease}
+.acc.open .acc-body-wrap{grid-template-rows:1fr}
+.acc-body{overflow:hidden;min-height:0}
+.acc-body-inner{padding:4px 14px 16px}
+.acc+.acc{border-top:1px solid #1a1a1a}
+.seg{display:flex;gap:6px;margin-bottom:14px}
+.seg button{flex:1;font-family:var(--sans);font-size:10px;font-weight:600;letter-spacing:.12em;padding:8px 0;border-radius:16px;cursor:pointer;transition:all .15s;border:1px solid var(--white)}
+.seg button.off{background:#000;color:var(--white)}
+.seg button.on{background:var(--white);color:#000}
+.param-label{font-size:9px;font-weight:500;letter-spacing:.14em;color:var(--label);margin-bottom:8px;text-transform:uppercase}
+.sl-row{margin-bottom:13px}
+.sl-row .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.sl-row .top label{font-family:var(--sans);font-size:9px;font-weight:500;letter-spacing:.12em;color:var(--label)}
+.sl-row .top output{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--white)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:2px;background:var(--track);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--white);cursor:grab}
+input[type=range]::-webkit-slider-thumb:active{cursor:grabbing}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--white);border:none}
+.dd{position:relative;margin-bottom:14px}
+.dd-btn{width:100%;display:flex;align-items:center;gap:9px;background:#0a0a0a;border:1px solid var(--border);border-radius:4px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:10px;cursor:pointer}
+.dd-btn:hover{border-color:#555}
+.dd-btn svg{margin-left:auto;color:#666}
+.sw{width:34px;height:10px;border-radius:5px;flex-shrink:0}
+.sw-pl{background:linear-gradient(90deg,#dc2626,#000 50%,#16c784)}
+.sw-mono{background:linear-gradient(90deg,#0a0a0a,#3a3a3a 50%,#fafafa)}
+.sw-neon{background:linear-gradient(90deg,#0f4c5c,#22d3ee 60%,#00ff88)}
+.dd-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#0a0a0a;border:1px solid var(--border);border-radius:4px;z-index:20;overflow:hidden;display:none}
+.dd-menu.open{display:block}
+.dd-opt{display:flex;align-items:center;gap:9px;padding:8px 10px;font-family:var(--mono);font-size:10px;color:var(--label);cursor:pointer}
+.dd-opt:hover{background:#141414;color:var(--white)}
+.dd-opt.on{color:var(--white)}
+.sw-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+.sw-row span{font-family:var(--sans);font-size:9px;font-weight:500;letter-spacing:.12em;color:var(--label);text-transform:uppercase}
+.sw-row input{display:none}
+.swt{width:34px;height:20px;background:#262626;border-radius:10px;position:relative;cursor:pointer;transition:background .2s}
+.swt::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#888;transition:all .2s}
+.sw-row input:checked+.swt{background:var(--green)}
+.sw-row input:checked+.swt::after{left:16px;background:#000}
+.stat-list{padding-bottom:10px}
+.stat-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #131313}
+.stat-row:last-child{border-bottom:none}
+.stat-row .k{font-family:var(--sans);font-size:8.5px;font-weight:500;letter-spacing:.14em;color:var(--label);text-transform:uppercase}
+.stat-row .v{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--white)}
+.stat-row .v.price{color:var(--green)}
+.stat-row .v.neg{color:var(--red)}
+.scale{padding:12px 14px 14px;border-top:1px solid #1a1a1a;margin-top:auto}
+.scale .lbl{display:flex;justify-content:space-between;font-size:8px;font-weight:600;letter-spacing:.14em;color:var(--label);margin-bottom:8px}
+.scale .bar{height:8px;border-radius:4px;background:linear-gradient(90deg,#7f1d1d,#dc2626 25%,#000 50%,#16c784 75%,#14532d)}
+.scale .ends{display:flex;justify-content:space-between;font-family:var(--mono);font-size:8px;color:#555;margin-top:5px;letter-spacing:.12em}
+</style>
+</head>
+<body>
+<div class="tier1">
+    <div class="tier1-left"><a href="index.html">Platform</a><a href="#">Models</a><a href="#">Risk</a><a href="#">Research</a><a href="#">Support</a></div>
+    <div class="tier1-right"><span class="dot"></span> LSE · DESK 09 · SESSION LIVE</div>
+</div>
+<div class="tier2">
+    <a href="black-scholes.html">Black-Scholes Option Pricing</a>
+    <a href="heston.html">Heston Stochastic Volatility</a>
+    <a href="black-litterman.html">Black-Litterman Model</a>
+    <a href="monte-carlo.html">Monte Carlo Portfolio Simulation</a>
+    <a href="apt.html" class="active">Arbitrage Pricing Theory</a>
+</div>
+<div class="header">
+    <div class="h-title">3D ARBITRAGE PRICING THEORY PLANE <span class="i">i</span><span class="badge" id="optBadge">FAIR</span></div>
+    <div style="display:flex;gap:8px"><button class="btn-reset" id="backBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Back</button><button class="btn-reset" id="resetView"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>Reset View</button></div>
+</div>
+<div class="main">
+    <div id="plot"></div>
+    <aside class="panel left">
+        <div class="acc open">
+            <button class="acc-head">⚙ PARAMETERS <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="acc-body-wrap"><div class="acc-body"><div class="acc-body-inner">
+                <div class="param-label">Surface Metric</div>
+                <div class="seg" id="segMetric"><button data-v="fair" class="on">FAIR</button><button data-v="alpha" class="off">ALPHA</button></div>
+                <div class="sl-row"><div class="top"><label>RISK-FREE (R)</label><output id="vR">5.0%</output></div><input type="range" id="r" min="-2" max="10" step="1" value="5"></div>
+                <div class="sl-row"><div class="top"><label>MKT PREM (λM)</label><output id="vLam">8.0%</output></div><input type="range" id="lam" min="0" max="20" step="1" value="8"></div>
+                <div class="sl-row"><div class="top"><label>SIZE PREM (λS)</label><output id="vLamS">3.0%</output></div><input type="range" id="lams" min="-10" max="10" step="1" value="3"></div>
+                <div class="sl-row"><div class="top"><label>VALUE PREM (λV)</label><output id="vLamV">5.0%</output></div><input type="range" id="lamv" min="-10" max="10" step="1" value="5"></div>
+                <div class="sl-row"><div class="top"><label>BETA HML (β3)</label><output id="vB3">0.50</output></div><input type="range" id="b3" min="-200" max="200" step="1" value="50"></div>
+                <div class="sl-row"><div class="top"><label>ALPHA (α)</label><output id="vAl">0.0%</output></div><input type="range" id="al" min="-10" max="10" step="1" value="0"></div>
+            </div></div></div>
+        </div>
+        <div class="acc open">
+            <button class="acc-head">◎ DISPLAY <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="acc-body-wrap"><div class="acc-body"><div class="acc-body-inner">
+                <div class="param-label">Color Scheme</div>
+                <div class="dd" id="dd"><button class="dd-btn" id="ddBtn"><span class="sw sw-pl" id="ddSw"></span><span id="ddName">P&amp;L</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <div class="dd-menu" id="ddMenu"><div class="dd-opt on" data-v="pl"><span class="sw sw-pl"></span>P&amp;L</div><div class="dd-opt" data-v="mono"><span class="sw sw-mono"></span>MONO</div><div class="dd-opt" data-v="neon"><span class="sw sw-neon"></span>NEON</div></div></div>
+                <label class="sw-row"><span>WIREFRAME</span><input type="checkbox" id="swWire" checked><i class="swt"></i></label>
+                <label class="sw-row"><span>GRID</span><input type="checkbox" id="swGrid" checked><i class="swt"></i></label>
+                <label class="sw-row"><span>AXES</span><input type="checkbox" id="swAxes" checked><i class="swt"></i></label>
+                <label class="sw-row"><span>AUTO ROTATE</span><input type="checkbox" id="swRot"><i class="swt"></i></label>
+            </div></div></div>
+        </div>
+    </aside>
+    <aside class="panel right">
+        <div class="acc-body-inner">
+            <div class="stat-list">
+                <div class="stat-row"><span class="k">Risk-Free</span><span class="v price" id="s-r">—</span></div>
+                <div class="stat-row"><span class="k">Mkt Premium</span><span class="v price" id="s-lam">—</span></div>
+                <div class="stat-row"><span class="k">Size Premium</span><span class="v price" id="s-lams">—</span></div>
+                <div class="stat-row"><span class="k">Value Premium</span><span class="v price" id="s-lamv">—</span></div>
+                <div class="stat-row"><span class="k">Beta HML</span><span class="v" id="s-b3">—</span></div>
+                <div class="stat-row"><span class="k">Alpha</span><span class="v price" id="s-al">—</span></div>
+                <div class="stat-row"><span class="k">Fair Return (βM=1, βS=0.5)</span><span class="v price" id="s-fair">—</span></div>
+                <div class="stat-row"><span class="k">Alpha-Adj Return</span><span class="v price" id="s-aadj">—</span></div>
+                <div class="stat-row"><span class="k">Zero-Beta Fair</span><span class="v" id="s-zb">—</span></div>
+                <div class="stat-row"><span class="k">Plane Slope ∂E/∂βM</span><span class="v" id="s-slope">—</span></div>
+            </div>
+        </div>
+        <div class="scale"><div class="lbl"><span id="scaleLbl">FAIR RETURN</span><span></span></div><div class="bar"></div><div class="ends"><span>LOW</span><span>HIGH</span></div></div>
+    </aside>
+    <div class="hint">Drag to rotate • Scroll to zoom • Right-click to pan • E[R] = r + βM·λM + βS·λS + βV·λV + α</div>
+</div>
+<script>
+/* ═════════ APT ENGINE ═════════ */
+function rR(){return sliders.r.value/100}
+function lamR(){return sliders.lam.value/100}
+function lamSR(){return sliders.lams.value/100}
+function lamVR(){return sliders.lamv.value/100}
+function b3R(){return sliders.b3.value/100}
+function alR(){return sliders.al.value/100}
+function aptRet(b1,b2,withAlpha){
+    return rR()+b1*lamR()+b2*lamSR()+b3R()*lamVR()+(withAlpha?alR():0);
+}
+
+/* ═════════ STATE ═════════ */
+const $=id=>document.getElementById(id);
+const state={metric:'fair',scheme:'pl',wire:true,grid:true,axes:true,rot:false};
+const sliders={r:$('r'),lam:$('lam'),lams:$('lams'),lamv:$('lamv'),b3:$('b3'),al:$('al')};
+Object.values(sliders).forEach(el=>{
+    const paint=()=>{const p=(el.value-el.min)/(el.max-el.min)*100;el.style.background=`linear-gradient(90deg,#4f46e5 ${p}%,#262626 ${p}%)`};
+    paint();el.addEventListener('input',paint);
+});
+const CMAP={pl:[[0,'#7f1d1d'],[0.18,'#dc2626'],[0.4,'#3a0a0a'],[0.5,'#000000'],[0.62,'#052e16'],[0.85,'#16c784'],[1,'#14532d']],mono:[[0,'#0a0a0a'],[0.4,'#2a2a2a'],[0.65,'#71717a'],[1,'#fafafa']],neon:[[0,'#0f4c5c'],[0.45,'#0e7490'],[0.75,'#2dd4bf'],[1,'#00ff88']]};
+
+function buildGrid(){
+    const N=30,x0=0,x1=2,y0=-1,y1=1;
+    const xs=[],ys=[],zs=[];
+    for(let i=0;i<N;i++){xs[i]=x0+(x1-x0)*i/(N-1);
+        for(let j=0;j<N;j++){const b2=y0+(y1-y0)*j/(N-1);ys[j]=b2;zs[j]=zs[j]||[];zs[j][i]=aptRet(xs[i],b2,state.metric==='alpha');}}
+    return{xs,ys,zs};
+}
+
+/* ═════════ PLOT ═════════ */
+const CAMERA_DEFAULT={eye:{x:1.8,y:-1.8,z:1.2}};
+function renderPlot(){
+    const g=buildGrid();
+    const ax=t=>({title:{text:t,font:{family:'Roboto Mono',size:10,color:'#666'}},
+        gridcolor:state.grid?'#222222':'rgba(0,0,0,0)',zerolinecolor:'#222222',showbackground:false,
+        linecolor:state.axes?'#333333':'rgba(0,0,0,0)',showgrid:state.grid,visible:state.axes,
+        showticklabels:true,tickfont:{family:'Roboto Mono',size:8,color:'#555'}});
+    const lay={margin:{l:0,r:0,t:0,b:0},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
+        font:{family:'Roboto Mono',color:'#888'},
+        scene:{xaxis:ax('β MARKET'),yaxis:ax('β SIZE'),zaxis:ax('E[R]'),
+            camera:CAMERA_DEFAULT,aspectmode:'manual',aspectratio:{x:1.15,y:1.0,z:0.85}}};
+    const trace={type:'surface',x:g.xs,y:g.ys,z:g.zs,colorscale:CMAP[state.scheme],name:state.metric.toUpperCase(),showscale:false,
+        contours:{x:{show:state.wire,color:'#111111',width:1},y:{show:state.wire,color:'#111111',width:1},z:{show:false}}};
+    Plotly.react('plot',[trace],lay,{displayModeBar:false,responsive:true,scrollZoom:true});
+}
+
+/* ═════════ STATS ═════════ */
+function pct(x){return (x>=0?'+':'')+(x*100).toFixed(2)+'%'}
+function updateStats(){
+    const fair=aptRet(1,0.5,false),aadj=aptRet(1,0.5,true),zb=aptRet(0,0,false);
+    $('s-r').textContent=pct(rR());
+    $('s-lam').textContent=pct(lamR());
+    $('s-lams').textContent=pct(lamSR());
+    $('s-lamv').textContent=pct(lamVR());
+    $('s-b3').textContent=b3R().toFixed(2);
+    $('s-al').textContent=pct(alR());
+    $('s-fair').textContent=pct(fair);
+    $('s-aadj').textContent=pct(aadj);
+    $('s-zb').textContent=pct(zb);
+    $('s-slope').textContent='+'+ (lamR()*100).toFixed(2)+'%';
+    $('scaleLbl').textContent=state.metric==='alpha'?'ALPHA-ADJ RETURN':'FAIR RETURN';
+}
+
+/* ═════════ MASTER UPDATE ═════════ */
+function update(){
+    $('vR').textContent=Number(sliders.r.value).toFixed(1)+'%';
+    $('vLam').textContent=Number(sliders.lam.value).toFixed(1)+'%';
+    $('vLamS').textContent=Number(sliders.lams.value).toFixed(1)+'%';
+    $('vLamV').textContent=Number(sliders.lamv.value).toFixed(1)+'%';
+    $('vB3').textContent=b3R().toFixed(2);
+    $('vAl').textContent=((+sliders.al.value)>=0?'+':'')+Number(sliders.al.value).toFixed(1)+'%';
+    updateStats();
+    if(window.Plotly)renderPlot();
+}
+
+/* ═════════ AUTO ROTATE ═════════ */
+let rotTimer=null;
+function startRot(){if(rotTimer)return;rotTimer=setInterval(()=>{
+    const gd=$('plot');
+    if(gd&&gd._fullLayout&&gd._fullLayout.scene){
+        const cam=gd._fullLayout.scene.camera||CAMERA_DEFAULT;
+        const a=Math.atan2(cam.eye.y,cam.eye.x)+0.012,r=Math.hypot(cam.eye.x,cam.eye.y);
+        Plotly.relayout('plot',{scene:{camera:{eye:{x:r*Math.cos(a),y:r*Math.sin(a),z:cam.eye.z}}}});
+    }},40);}
+function stopRot(){clearInterval(rotTimer);rotTimer=null}
+
+/* ═════════ EVENTS ═════════ */
+function bindSeg(id,onChange){document.querySelectorAll('#'+id+' button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('#'+id+' button').forEach(x=>{x.classList.remove('on');x.classList.add('off')});
+    b.classList.add('on');b.classList.remove('off');onChange(b.dataset.v);}));}
+bindSeg('segMetric',v=>{state.metric=v;$('optBadge').textContent=v==='fair'?'FAIR':'ALPHA';update();});
+Object.values(sliders).forEach(el=>el.addEventListener('input',update));
+$('swWire').addEventListener('change',e=>{state.wire=e.target.checked;renderPlot()});
+$('swGrid').addEventListener('change',e=>{state.grid=e.target.checked;renderPlot()});
+$('swAxes').addEventListener('change',e=>{state.axes=e.target.checked;renderPlot()});
+$('swRot').addEventListener('change',e=>{state.rot=e.target.checked;state.rot?startRot():stopRot()});
+const ddMenu=$('ddMenu');
+$('ddBtn').addEventListener('click',e=>{e.stopPropagation();ddMenu.classList.toggle('open')});
+document.addEventListener('click',()=>ddMenu.classList.remove('open'));
+document.querySelectorAll('.dd-opt').forEach(o=>o.addEventListener('click',e=>{e.stopPropagation();
+    state.scheme=o.dataset.v;document.querySelectorAll('.dd-opt').forEach(x=>x.classList.toggle('on',x===o));
+    $('ddName').textContent=o.dataset.v==='pl'?'P&L':o.dataset.v.toUpperCase();ddMenu.classList.remove('open');renderPlot();}));
+$('resetView').addEventListener('click',()=>{stopRot();state.rot=false;$('swRot').checked=false;
+    if(window.Plotly){Plotly.relayout('plot',{scene:{camera:CAMERA_DEFAULT}});renderPlot();}});
+$('backBtn').addEventListener('click',()=>{if(document.referrer)history.back();else location.href='index.html';});
+document.querySelectorAll('.acc-head').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('open')));
+window.addEventListener('resize',()=>{if(window.Plotly)renderPlot()});
+window.addEventListener('load',()=>{if(window.Plotly)renderPlot()});
+if(!window.Plotly){$('plot').style.display='none';const d=document.createElement('div');d.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#555;font-size:11px';d.textContent='Plotly failed to load — check internet connection';document.querySelector('.main').appendChild(d);}
+update();
+</script>
+</body>
+</html>
