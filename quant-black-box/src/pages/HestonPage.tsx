@@ -59,10 +59,13 @@ export default function HestonPage() {
         if (surfaceKey.metric === 'delta') {
           const d = hestonP1(x, surfaceKey.K, t, p)
           z = surfaceKey.opt === 'call' ? d : d - 1
+          z = Math.min(1, Math.max(-1, z))
         } else {
           const mm = hestonPrice(x, surfaceKey.K, t, p)
           z = surfaceKey.opt === 'call' ? mm.C : mm.P
+          z = Math.max(0, z)
         }
+        if (!Number.isFinite(z)) z = 0
         points.push([x, t, z])
       }
     }

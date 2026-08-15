@@ -140,31 +140,61 @@ function hestonIntegrand(u: number, fn: (u: number) => Complex, a: HestonArgs): 
   return prod[0]
 }
 
-function simpson(fn: (x: number) => number, a: number, b: number, n: number): number {
-  const h = (b - a) / n
-  let s = fn(a) + fn(b)
-  for (let i = 1; i < n; i++) s += fn(a + i * h) * (i % 2 ? 4 : 2)
-  return (s * h) / 3
+function adaptiveSimpson(fn: (x: number) => number, a: number, b: number, tol: number): number {
+  const m = (a + b) / 2
+  const fa = fn(a)
+  const fm = fn(m)
+  const fb = fn(b)
+  const whole = ((b - a) / 6) * (fa + 4 * fm + fb)
+  const rec = (lo: number, hi: number, flo: number, fmid: number, fhi: number, est: number): number => {
+    const mid = (lo + hi) / 2
+    const lmid = (lo + mid) / 2
+    const rmid = (mid + hi) / 2
+    const fl = fn(lmid)
+    const fr = fn(rmid)
+    const hh = (hi - lo) / 12
+    const left = hh * (flo + 4 * fl + fmid)
+    const right = hh * (fmid + 4 * fr + fhi)
+    const delta = left + right - est
+    if (Math.abs(delta) <= 15 * tol) return left + right + delta / 15
+    return rec(lo, mid, flo, fl, fmid, left) + rec(mid, hi, fmid, fr, fhi, right)
+  }
+  return rec(a, b, fa, fm, fb, whole)
 }
 
-function hestonIntegrate(U: number, N: number, mode: 'p1' | 'both', a: HestonArgs): number | HestonResult {
-  const P1 = 0.5 + simpson((u) => hestonIntegrand(u, (x) => hestonCf1(x, a), a), 0, U, N) / Math.PI
+function hestonIntegrate(opts: Required<HestonIntegralOpts>, mode: 'p1' | 'both', a: HestonArgs): number | HestonResult {
+  const { U, panels, tol } = opts
+  const integrate = (fn: (u: number) => Complex): number => {
+    const width = U / panels
+    let total = 0
+    for (let p = 0; p < panels; p++) {
+      total += adaptiveSimpson((u) => hestonIntegrand(u, fn, a), p * width, (p + 1) * width, tol)
+    }
+    return total
+  }
+  const P1 = 0.5 + integrate((u) => hestonCf1(u, a)) / Math.PI
   if (mode === 'p1') return P1
-  const P2 = 0.5 + simpson((u) => hestonIntegrand(u, (x) => hestonCf2(x, a), a), 0, U, N) / Math.PI
+  const P2 = 0.5 + integrate((u) => hestonCf2(u, a)) / Math.PI
   const disc = Math.exp(-a.r * a.T)
   const C = a.S0 * P1 - a.K * disc * P2
   const P = C - a.S0 + a.K * disc
   return { C, P, delta: P1, deltaP: P1 - 1 }
 }
 
-export function hestonP1(S: number, K: number, T: number, p: HestonParams): number {
+export function hestonP1(S: number, K: number, T: number, p: HestonParams, opts?: HestonIntegralOpts): number {
   const a: HestonArgs = { S0: S, K, T, ...p }
-  return hestonIntegrate(120, 96, 'p1', a) as number
+  return hestonIntegrate({ U: opts?.U ?? 300, panels: opts?.panels ?? 24, tol: opts?.tol ?? 1e-6 }, 'p1', a) as number
 }
 
-export function hestonPrice(S: number, K: number, T: number, p: HestonParams): HestonResult {
+export interface HestonIntegralOpts {
+  U?: number
+  panels?: number
+  tol?: number
+}
+
+export function hestonPrice(S: number, K: number, T: number, p: HestonParams, opts?: HestonIntegralOpts): HestonResult {
   const a: HestonArgs = { S0: S, K, T, ...p }
-  return hestonIntegrate(120, 96, 'both', a) as HestonResult
+  return hestonIntegrate({ U: opts?.U ?? 300, panels: opts?.panels ?? 24, tol: opts?.tol ?? 1e-6 }, 'both', a) as HestonResult
 }
 
 /* ═════════ BLACK-LITTERMAN ENGINE ═════════ */
