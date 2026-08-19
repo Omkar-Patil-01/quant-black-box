@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav } from '../components/layout'
+import { useEffect, useMemo, useState } from 'react'
+import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav, FavoritesBar, WorkspacePanel } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, Scale } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -10,6 +10,7 @@ import { aptRet } from '../lib/math'
 import type { AptParams } from '../lib/math'
 import { pct } from '../lib/format'
 import { useApp } from '../store/app'
+import { useWorkspace } from '../store/workspace'
 import type { AptMetric } from '../store/models'
 import { useApt } from '../store/models'
 
@@ -18,6 +19,7 @@ export default function AptPage() {
   const setView = useApp((st) => st.setView)
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
+  const recordRun = useWorkspace((st) => st.recordRun)
 
   const params: AptParams = {
     r: s.r / 100,
@@ -57,6 +59,17 @@ export default function AptPage() {
     return { fair, aadj, zb }
   }, [params])
 
+  useEffect(() => {
+    const t0 = performance.now()
+    recordRun({
+      modelId: 'apt',
+      scenarioName: 'Live',
+      inputs: { r: s.r, lam: s.lam, lams: s.lams, lamv: s.lamv, b3: s.b3, al: s.al, metric: s.metric },
+      outputsSummary: { fair: stats.fair, aadj: stats.aadj, zb: stats.zb },
+      runtimeMs: performance.now() - t0,
+    })
+  }, [s.r, s.lam, s.lams, s.lamv, s.b3, s.al, s.metric])
+
   return (
     <div className="flex h-screen flex-col">
       <Tier1Nav />
@@ -70,6 +83,9 @@ export default function AptPage() {
         onReset={() => setResetToken((t) => t + 1)}
       />
       <ModelShell>
+        <FavoritesBar />
+        <WorkspacePanel />
+
         <SurfaceChart
           points={surface.points}
           dataShape={surface.shape}

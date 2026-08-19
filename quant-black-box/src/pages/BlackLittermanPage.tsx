@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav } from '../components/layout'
+import { useEffect, useMemo, useState } from 'react'
+import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav, FavoritesBar, WorkspacePanel } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, Scale } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -9,6 +9,7 @@ import { BL_FORMULAS } from '../lib/formulas'
 import { BL_NAMES, BL_WMKT, blSolve } from '../lib/math'
 import { signPct } from '../lib/format'
 import { useApp } from '../store/app'
+import { useWorkspace } from '../store/workspace'
 import type { BlMetric, BlSrc } from '../store/models'
 import { useBl } from '../store/models'
 
@@ -17,6 +18,7 @@ export default function BlackLittermanPage() {
   const setView = useApp((st) => st.setView)
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
+  const recordRun = useWorkspace((st) => st.recordRun)
 
   const lam = s.lam / 10
   const tau = s.tau / 1000
@@ -58,6 +60,17 @@ export default function BlackLittermanPage() {
     }
   }, [tau, lam, del, q1, q2])
 
+  useEffect(() => {
+    const t0 = performance.now()
+    recordRun({
+      modelId: 'bl',
+      scenarioName: 'Live',
+      inputs: { lam, tau, del, q1, q2, metric: s.metric, src: s.src },
+      outputsSummary: { eqRet0: stats.eq[0], poRet0: stats.po[0], res1: stats.res1, res2: stats.res2 },
+      runtimeMs: performance.now() - t0,
+    })
+  }, [lam, tau, del, q1, q2, s.metric, s.src])
+
   return (
     <div className="flex h-screen flex-col">
       <Tier1Nav />
@@ -71,6 +84,9 @@ export default function BlackLittermanPage() {
         onReset={() => setResetToken((t) => t + 1)}
       />
       <ModelShell>
+        <FavoritesBar />
+        <WorkspacePanel />
+
         <SurfaceChart
           points={surface.points}
           dataShape={surface.shape}

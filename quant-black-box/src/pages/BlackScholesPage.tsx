@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Line, LineChart, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav } from '../components/layout'
+import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav, FavoritesBar, WorkspacePanel } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, Scale } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -10,6 +10,7 @@ import { BS_FORMULAS } from '../lib/formulas'
 import { bs } from '../lib/math'
 import { money } from '../lib/format'
 import { useApp } from '../store/app'
+import { useWorkspace } from '../store/workspace'
 import type { Metric, Opt } from '../store/models'
 import { useBs } from '../store/models'
 
@@ -18,6 +19,7 @@ export default function BlackScholesPage() {
   const setView = useApp((st) => st.setView)
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
+  const recordRun = useWorkspace((st) => st.recordRun)
 
   const S0 = s.S0
   const K = s.K
@@ -71,6 +73,26 @@ export default function BlackScholesPage() {
   const atmPrice = atm ? (s.opt === 'call' ? atm.C : atm.P) : 0
   const delta = m ? (s.opt === 'call' ? m.delta : m.deltaP) : 0
 
+  useEffect(() => {
+    if (!m) return
+    const t0 = performance.now()
+    const outputs: Record<string, number> = {
+      price: s.opt === 'call' ? m.C : m.P,
+      delta,
+      gamma: m.gamma,
+      vega: m.vega,
+      theta: m.theta,
+      rho: m.rho,
+    }
+    recordRun({
+      modelId: 'bs',
+      scenarioName: 'Live',
+      inputs: { S0, K, T, r, sig, opt: s.opt, metric: s.metric },
+      outputsSummary: outputs,
+      runtimeMs: performance.now() - t0,
+    })
+  }, [S0, K, T, r, sig, s.opt, s.metric])
+
   return (
     <div className="flex h-screen flex-col">
       <Tier1Nav />
@@ -84,6 +106,9 @@ export default function BlackScholesPage() {
         onReset={() => setResetToken((t) => t + 1)}
       />
       <ModelShell>
+        <FavoritesBar />
+        <WorkspacePanel />
+
         <SurfaceChart
           points={surface.points}
           dataShape={surface.shape}

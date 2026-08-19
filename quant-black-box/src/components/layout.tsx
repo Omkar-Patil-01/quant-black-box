@@ -1,8 +1,15 @@
-import type { ReactNode } from 'react'
-import { ArrowLeft, RotateCcw } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { ArrowLeft, RotateCcw, Save } from 'lucide-react'
 import type { View } from '../store/app'
 import { useApp } from '../store/app'
-import { IconBtn } from './ui'
+import { useWorkspace, extractModelParams } from '../store/workspace'
+import { isModelId } from '../types/workspace'
+import FavoritesSidebar from './FavoritesSidebar'
+import ScenarioPanel from './ScenarioPanel'
+import ScenarioCompare from './ScenarioCompare'
+import PresetManager from './PresetManager'
+import RecentRuns from './RecentRuns'
+import { IconBtn, Accordion } from './ui'
 
 const TIER1 = ['Models', 'Risk', 'Research', 'Support']
 
@@ -16,6 +23,7 @@ export const TIER2: { view: View; label: string }[] = [
 
 export function Tier1Nav() {
   const setView = useApp((s) => s.setView)
+
   return (
     <div className="flex h-[38px] shrink-0 items-center justify-between border-b border-line px-[18px]">
       <nav className="flex gap-[22px] text-[10px] font-medium uppercase tracking-[0.08em]">
@@ -39,6 +47,7 @@ export function Tier1Nav() {
 export function Tier2Nav() {
   const view = useApp((s) => s.view)
   const setView = useApp((s) => s.setView)
+
   return (
     <nav className="flex h-10 shrink-0 items-stretch overflow-x-auto border-b border-line px-2">
       {TIER2.map((t) => (
@@ -73,6 +82,23 @@ export function Header({
   onBack: () => void
   onReset: () => void
 }) {
+  const view = useApp((s) => s.view)
+  const activeScenarioId = useWorkspace((s) => s.activeScenarioId)
+  const scenarios = useWorkspace((s) => s.scenarios)
+  const createScenario = useWorkspace((s) => s.createScenario)
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [scenarioName, setScenarioName] = useState('')
+
+  const modelId = isModelId(view) ? view : null
+
+  const handleQuickSave = async () => {
+    if (!scenarioName.trim() || !modelId) return
+    const params = await extractModelParams(modelId)
+    createScenario(scenarioName.trim(), modelId, params)
+    setScenarioName('')
+    setShowSaveInput(false)
+  }
+
   return (
     <div className="relative z-[6] flex h-[46px] shrink-0 items-center justify-between border-b border-line px-[18px]">
       <div className="flex items-center gap-2.5 text-[12px] font-bold tracking-[0.12em] text-white">
@@ -91,8 +117,44 @@ export function Header({
         >
           {badge}
         </span>
+        {activeScenarioId && scenarios[activeScenarioId] && (
+          <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[8px] text-label">
+            {scenarios[activeScenarioId].name}
+          </span>
+        )}
       </div>
       <div className="flex gap-2">
+        {showSaveInput ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={scenarioName}
+              onChange={(e) => setScenarioName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleQuickSave()}
+              placeholder="Scenario name..."
+              autoFocus
+              className="w-[140px] rounded border border-border bg-[#0a0a0a] px-2 py-1 font-mono text-[9px] text-white placeholder:text-mute focus:border-[#555] focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleQuickSave}
+              className="cursor-pointer rounded bg-white px-2 py-1 text-[9px] font-semibold text-black"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowSaveInput(false); setScenarioName('') }}
+              className="cursor-pointer px-1 text-[9px] text-label hover:text-white"
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <IconBtn icon={<Save size={13} />} onClick={() => setShowSaveInput(true)}>
+            Save Scenario
+          </IconBtn>
+        )}
         <IconBtn icon={<ArrowLeft size={13} />} onClick={onBack}>
           Back
         </IconBtn>
@@ -101,6 +163,35 @@ export function Header({
         </IconBtn>
       </div>
     </div>
+  )
+}
+
+export function FavoritesBar() {
+  return (
+    <aside className="absolute left-4 top-4 z-[7] w-[120px] rounded-md border border-border bg-black p-2 shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
+      <FavoritesSidebar />
+    </aside>
+  )
+}
+
+export function WorkspacePanel() {
+  return (
+    <aside className="absolute left-[132px] top-4 z-[7] w-[280px] max-h-[calc(100%-32px)] overflow-y-auto rounded-md border border-border bg-black shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
+      <div className="p-3">
+        <Accordion title="📁 SCENARIOS">
+          <ScenarioPanel />
+          <div className="mt-2">
+            <ScenarioCompare />
+          </div>
+        </Accordion>
+        <Accordion title="🔖 PRESETS">
+          <PresetManager />
+        </Accordion>
+        <Accordion title="📋 RECENT RUNS">
+          <RecentRuns />
+        </Accordion>
+      </div>
+    </aside>
   )
 }
 
@@ -121,17 +212,5 @@ export function RightPanel({ children }: { children: ReactNode }) {
     <aside className="absolute right-4 top-4 z-[7] flex max-h-[calc(100%-32px)] w-[264px] flex-col overflow-y-auto rounded-md border border-border bg-black shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
       {children}
     </aside>
-  )
-}
-
-export function InfoButton({ onInfo }: { onInfo: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onInfo}
-      className="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full border border-[#555555] text-[8px] font-normal text-[#777777]"
-    >
-      i
-    </button>
   )
 }

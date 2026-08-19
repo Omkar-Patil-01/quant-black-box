@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav } from '../components/layout'
+import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav, FavoritesBar, WorkspacePanel } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, Scale } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -10,6 +10,7 @@ import { MC_FORMULAS } from '../lib/formulas'
 import { MC_STEPS, metricVal, simulateMc } from '../lib/math'
 import { money, pct } from '../lib/format'
 import { useApp } from '../store/app'
+import { useWorkspace } from '../store/workspace'
 import type { McMetric } from '../store/models'
 import { useMc } from '../store/models'
 
@@ -18,6 +19,7 @@ export default function MonteCarloPage() {
   const setView = useApp((st) => st.setView)
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
+  const recordRun = useWorkspace((st) => st.recordRun)
 
   const S0 = s.S0
   const mu = s.mu / 100
@@ -76,6 +78,17 @@ export default function MonteCarloPage() {
     return counts.map((c, i) => ({ bin: min + width * (i + 0.5), count: c }))
   }, [sim])
 
+  useEffect(() => {
+    const t0 = performance.now()
+    recordRun({
+      modelId: 'mc',
+      scenarioName: 'Live',
+      inputs: { S0, mu: s.mu, sig: s.sig, T: s.T, r: s.r, npaths, gam: s.gam, metric: s.metric },
+      outputsSummary: { mean: stats.mean, sd: stats.sd, var5: stats.var5, losses: stats.losses },
+      runtimeMs: performance.now() - t0,
+    })
+  }, [S0, s.mu, s.sig, s.T, s.r, npaths, s.gam, s.metric])
+
   return (
     <div className="flex h-screen flex-col">
       <Tier1Nav />
@@ -89,6 +102,9 @@ export default function MonteCarloPage() {
         onReset={() => setResetToken((t) => t + 1)}
       />
       <ModelShell>
+        <FavoritesBar />
+        <WorkspacePanel />
+
         <SurfaceChart
           points={surface.points}
           dataShape={surface.shape}

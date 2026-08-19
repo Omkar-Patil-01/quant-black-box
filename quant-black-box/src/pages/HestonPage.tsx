@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav } from '../components/layout'
+import { useEffect, useMemo, useState } from 'react'
+import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav, FavoritesBar, WorkspacePanel } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, Scale } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -11,6 +11,7 @@ import type { HestonParams } from '../lib/math'
 import { money } from '../lib/format'
 import { useDebounced } from '../lib/hooks'
 import { useApp } from '../store/app'
+import { useWorkspace } from '../store/workspace'
 import type { Metric, Opt } from '../store/models'
 import { useHeston } from '../store/models'
 
@@ -19,6 +20,7 @@ export default function HestonPage() {
   const setView = useApp((st) => st.setView)
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
+  const recordRun = useWorkspace((st) => st.recordRun)
 
   const S0 = s.S0
   const K = s.K
@@ -108,6 +110,17 @@ export default function HestonPage() {
     }
   }, [S0, K, T, r, params, s.opt])
 
+  useEffect(() => {
+    const t0 = performance.now()
+    recordRun({
+      modelId: 'heston',
+      scenarioName: 'Live',
+      inputs: { S0, K, T, r, v0: s.v0, kappa: s.kappa, theta: s.theta, sigv: s.sigv, rho: s.rho, opt: s.opt, metric: s.metric },
+      outputsSummary: { call: stats.call, put: stats.put, delta: stats.delta, gamma: stats.gamma, vega: stats.vega, theta: stats.theta, rho: stats.rho },
+      runtimeMs: performance.now() - t0,
+    })
+  }, [S0, K, T, r, s.v0, s.kappa, s.theta, s.sigv, s.rho, s.opt, s.metric])
+
   return (
     <div className="flex h-screen flex-col">
       <Tier1Nav />
@@ -121,6 +134,9 @@ export default function HestonPage() {
         onReset={() => setResetToken((t) => t + 1)}
       />
       <ModelShell>
+        <FavoritesBar />
+        <WorkspacePanel />
+
         <SurfaceChart
           points={surface.points}
           dataShape={surface.shape}
