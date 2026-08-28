@@ -5,6 +5,7 @@ import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
+import MarketPanel from '../components/MarketPanel'
 import { BL_FORMULAS } from '../lib/formulas'
 import { BL_NAMES, BL_WMKT, blSolve } from '../lib/math'
 import { signPct } from '../lib/format'
@@ -86,6 +87,10 @@ export default function BlackLittermanPage() {
       <ModelShell>
         <FavoritesBar />
         <WorkspacePanel />
+
+        <div className="absolute right-4 top-4 z-[7]">
+          <MarketPanel />
+        </div>
 
         <SurfaceChart
           points={surface.points}

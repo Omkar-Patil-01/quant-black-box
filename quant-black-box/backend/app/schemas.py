@@ -1,6 +1,9 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+
+# ────────────── Grid (shared) ──────────────
 
 
 class GridRequest(BaseModel):
@@ -176,3 +179,172 @@ class AptResponse(BaseModel):
     b2: float
     ret: float
     grid: GridResponse | None = None
+
+
+# ══════════════════════════════════════════════════════════
+# WORKSPACE SCHEMAS
+# ══════════════════════════════════════════════════════════
+
+
+class FavoriteConfig(BaseModel):
+    modelIds: list[str] = ["bs", "heston", "bl", "mc", "apt"]
+
+
+class ScenarioConfig(BaseModel):
+    id: str
+    name: str
+    modelId: str
+    description: str | None = None
+    createdAt: str
+    updatedAt: str
+    parameters: dict[str, Any] = {}
+    tags: list[str] = []
+
+
+class ParameterPreset(BaseModel):
+    id: str
+    name: str
+    modelId: str
+    parameters: dict[str, Any] = {}
+    tags: list[str] = []
+    createdAt: str
+
+
+class ModelExecutionSnapshot(BaseModel):
+    runId: str
+    timestamp: str
+    runtimeMs: float
+    modelId: str
+    scenarioName: str
+    inputs: dict[str, Any] = {}
+    outputsSummary: dict[str, float] = {}
+
+
+class WorkspaceState(BaseModel):
+    version: str = "1.0.0"
+    activeModelId: str | None = None
+    activeScenarioId: str | None = None
+    lastUpdated: str = ""
+    favorites: FavoriteConfig = FavoriteConfig()
+    scenarios: dict[str, ScenarioConfig] = {}
+    recentRuns: list[ModelExecutionSnapshot] = []
+    presets: dict[str, ParameterPreset] = {}
+    deletedScenarios: dict[str, ScenarioConfig] = {}
+    lastModelParams: dict[str, Any] | None = None
+
+
+class ScenarioCreateRequest(BaseModel):
+    name: str
+    modelId: str
+    parameters: dict[str, Any] = {}
+    tags: list[str] = []
+    description: str | None = None
+
+
+class ScenarioUpdateRequest(BaseModel):
+    name: str | None = None
+    tags: list[str] | None = None
+    parameters: dict[str, Any] | None = None
+    description: str | None = None
+
+
+class PresetCreateRequest(BaseModel):
+    name: str
+    modelId: str
+    parameters: dict[str, Any] = {}
+    tags: list[str] = []
+
+
+class RunRecordRequest(BaseModel):
+    modelId: str
+    scenarioName: str = "Live"
+    inputs: dict[str, Any] = {}
+    outputsSummary: dict[str, float] = {}
+    runtimeMs: float = 0
+
+
+class FavoritesUpdateRequest(BaseModel):
+    modelIds: list[str]
+
+
+# ══════════════════════════════════════════════════════════
+# MARKET DATA SCHEMAS (London Strategic Edge)
+# ══════════════════════════════════════════════════════════
+
+
+class CandleRow(BaseModel):
+    timestamp: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+
+class CandlesRequest(BaseModel):
+    symbol: str
+    timeframe: str = "1d"
+    start: str | None = None
+    end: str | None = None
+    limit: int = Field(default=500, ge=1, le=5000)
+
+
+class CandlesResponse(BaseModel):
+    symbol: str
+    timeframe: str
+    rows: list[CandleRow]
+
+
+class QuoteResponse(BaseModel):
+    symbol: str
+    price: float
+    bid: float
+    ask: float
+    volume: float
+    timestamp: str
+    name: str
+
+
+class OptionContract(BaseModel):
+    ticker: str
+    strike: float
+    expiry: str
+    type: str
+    price: float
+    iv: float
+    delta: float
+    gamma: float
+    theta: float
+    vega: float
+    rho: float
+    volume: int
+    premium: float
+
+
+class OptionsChainResponse(BaseModel):
+    underlying: str
+    contracts: list[OptionContract]
+
+
+class CatalogEntry(BaseModel):
+    symbol: str
+    name: str
+    category: str
+    ticks: int
+    first: str | None = None
+    last: str | None = None
+
+
+class CatalogResponse(BaseModel):
+    entries: list[CatalogEntry]
+    total: int
+
+
+class SeriesRow(BaseModel):
+    date: str
+    value: float
+
+
+class SeriesResponse(BaseModel):
+    symbol: str
+    rows: list[SeriesRow]

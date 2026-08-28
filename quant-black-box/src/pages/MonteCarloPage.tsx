@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav, FavoritesBar, WorkspacePanel } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, Scale } from '../components/ui'
@@ -6,6 +6,7 @@ import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
+import MarketPanel from '../components/MarketPanel'
 import { MC_FORMULAS } from '../lib/formulas'
 import { MC_STEPS, metricVal, simulateMc } from '../lib/math'
 import { money, pct } from '../lib/format'
@@ -13,6 +14,7 @@ import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
 import type { McMetric } from '../store/models'
 import { useMc } from '../store/models'
+import type { Quote } from '../lib/marketApi'
 
 export default function MonteCarloPage() {
   const s = useMc()
@@ -89,6 +91,14 @@ export default function MonteCarloPage() {
     })
   }, [S0, s.mu, s.sig, s.T, s.r, npaths, s.gam, s.metric])
 
+  const handleLoadQuote = useCallback((q: Quote) => {
+    s.set({ S0: Math.round(q.price) })
+  }, [s.set])
+
+  const handleLoadVol = useCallback((vol: number) => {
+    s.set({ sig: Math.round(vol * 10000) / 100 })
+  }, [s.set])
+
   return (
     <div className="flex h-screen flex-col">
       <Tier1Nav />
@@ -104,6 +114,10 @@ export default function MonteCarloPage() {
       <ModelShell>
         <FavoritesBar />
         <WorkspacePanel />
+
+        <div className="absolute right-4 top-4 z-[7]">
+          <MarketPanel onLoadQuote={handleLoadQuote} onLoadVol={handleLoadVol} />
+        </div>
 
         <SurfaceChart
           points={surface.points}

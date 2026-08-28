@@ -5,6 +5,7 @@ import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
+import MarketPanel from '../components/MarketPanel'
 import { APT_FORMULAS } from '../lib/formulas'
 import { aptRet } from '../lib/math'
 import type { AptParams } from '../lib/math'
@@ -85,6 +86,10 @@ export default function AptPage() {
       <ModelShell>
         <FavoritesBar />
         <WorkspacePanel />
+
+        <div className="absolute right-4 top-4 z-[7]">
+          <MarketPanel />
+        </div>
 
         <SurfaceChart
           points={surface.points}
