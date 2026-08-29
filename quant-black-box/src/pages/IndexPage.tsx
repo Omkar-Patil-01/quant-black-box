@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import Background3D from '../components/Background3D'
 import QuantCard from '../components/QuantCard'
@@ -21,8 +22,8 @@ const MODELS: ModelMeta[] = [
     short: 'BSM',
     label: 'Black-Scholes-Merton',
     tagline: 'Closed-form European pricing with live Greeks across spot and time.',
-    metrics: ['CALL / PUT', 'DELTA', 'GAMMA', 'VEGA', 'THETA', 'RHO'],
-    accent: '#16c784',
+    metrics: ['DELTA', 'GAMMA', 'VEGA', 'THETA', 'RHO'],
+    accent: '#10b981',
   },
   {
     view: 'heston',
@@ -40,7 +41,7 @@ const MODELS: ModelMeta[] = [
     label: 'Bayesian Allocation',
     tagline: 'Merges implied equilibrium returns with investor views into a posterior.',
     metrics: ['IMPLIED EQM', 'POSTERIOR', 'OPT WEIGHTS'],
-    accent: '#a78bfa',
+    accent: '#8b5cf6',
   },
   {
     view: 'mc',
@@ -49,7 +50,7 @@ const MODELS: ModelMeta[] = [
     label: 'Portfolio Simulation',
     tagline: 'Seeded GBM path engine with terminal VaR, CVaR and CRRA utility.',
     metrics: ['GBM PATHS', 'VAR / CVAR', 'CRRA UTILITY'],
-    accent: '#fbbf24',
+    accent: '#f59e0b',
   },
   {
     view: 'apt',
@@ -58,50 +59,110 @@ const MODELS: ModelMeta[] = [
     label: 'Arbitrage Pricing Theory',
     tagline: 'Linear multi-factor return plane from market, size and value premia.',
     metrics: ['MULTI-FACTOR', 'BETA LOADINGS', 'PREMIA'],
-    accent: '#f472b6',
+    accent: '#ec4899',
   },
 ]
+
+function LiveClock() {
+  const [time, setTime] = useState(() => new Date())
+
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const hh = String(time.getHours()).padStart(2, '0')
+  const mm = String(time.getMinutes()).padStart(2, '0')
+  const ss = String(time.getSeconds()).padStart(2, '0')
+
+  return (
+    <span className="font-mono text-[10px] tabular-nums tracking-[0.06em] text-zinc-500">
+      {hh}:{mm}:{ss}
+    </span>
+  )
+}
 
 export default function IndexPage() {
   const setView = useApp((s) => s.setView)
 
   return (
-    <div className="flex h-screen flex-col">
-      <div className="flex h-10 shrink-0 items-center gap-2.5 border-b border-line bg-panel px-4">
-        <span className="live-dot" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">Black Box</span>
-        <span className="ml-auto font-mono text-[9px] text-mute">MODELS :: 5 · DESK 09 · SESSION LIVE</span>
+    <div className="relative flex h-screen flex-col bg-[#050505]">
+      {/* ── Top Utility Bar ──────────────────────── */}
+      <div className="relative z-10 flex h-11 shrink-0 items-center justify-between border-b border-zinc-800/60 bg-[#09090b]/80 px-5 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <span className="live-dot" />
+          <span className="font-mono text-[10px] font-medium tracking-[0.1em] text-zinc-300">
+            DESK 09 <span className="text-zinc-600">·</span> SESSION LIVE
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <LiveClock />
+          <div className="h-3 w-px bg-zinc-800" />
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900/50 px-2.5 py-1 transition-colors hover:border-zinc-700 hover:bg-zinc-800/50"
+          >
+            <span className="font-mono text-[9px] text-zinc-500">⌘K</span>
+          </button>
+        </div>
       </div>
 
-      <Background3D />
+      {/* ── Background layers ────────────────────── */}
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-radial-glow" />
+        <div className="absolute inset-0 bg-grid" />
+        <div className="absolute inset-0 bg-noise" />
+        <Background3D />
+      </div>
 
-      <div className="relative flex flex-1 flex-col overflow-y-auto">
+      {/* ── Main content ─────────────────────────── */}
+      <div className="relative z-10 flex flex-1 flex-col overflow-y-auto">
+        {/* Title section */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="pt-8 text-center"
+          className="pt-10 text-center"
         >
-          <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-mute">Quant Intelligence Terminal</span>
-          <h1 className="mt-3 font-mono text-[36px] font-bold tracking-[0.12em] text-white">BLACK BOX</h1>
-          <p className="mt-2 font-mono text-[10px] tracking-[0.08em] text-label">
+          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.45em] text-zinc-600">
+            Quant Intelligence Terminal
+          </span>
+          <h1 className="mt-3 font-mono text-[42px] font-bold tracking-[0.16em] text-white">
+            BLACK BOX
+          </h1>
+          <p className="mt-2 font-mono text-[10px] tracking-[0.08em] text-zinc-500">
             Five classic models · 3D surfaces · Live Greeks · Drag, orbit, explore
           </p>
         </motion.div>
 
-        <div className="flex flex-1 flex-wrap content-center items-center justify-center gap-5 p-6 [perspective:1600px]">
+        {/* Card grid */}
+        <div className="flex flex-1 flex-wrap content-center items-center justify-center gap-5 px-6 pb-2 pt-4 [perspective:1800px]">
           {MODELS.map((m, i) => (
             <QuantCard key={m.view} {...m} delay={0.08 + i * 0.07} onOpen={() => setView(m.view)} />
           ))}
         </div>
 
+        {/* Bottom status pill */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7, duration: 0.8 }}
-          className="pb-4 text-center font-mono text-[9px] uppercase tracking-[0.2em] text-mute"
+          className="flex justify-center pb-5"
         >
-          Hover to tilt · Click to launch
+          <div className="inline-flex items-center gap-3 rounded-full border border-zinc-800/60 bg-zinc-900/40 px-4 py-1.5 backdrop-blur-sm">
+            <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-600">
+              Hover to tilt
+            </span>
+            <span className="text-zinc-700">·</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-600">
+              Click to launch
+            </span>
+            <div className="ml-1 flex gap-1">
+              <span className="keycap">HOVER</span>
+              <span className="keycap">CLICK</span>
+            </div>
+          </div>
         </motion.div>
       </div>
     </div>

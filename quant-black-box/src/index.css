@@ -5,17 +5,23 @@
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
     --color-ink: #06080c;
-    --color-bg2: #000000;
-    --color-panel: #0a0c12;
+    --color-bg2: #050505;
+    --color-panel: #09090b;
     --color-line: #1a1a1a;
-    --color-border: #333333;
+    --color-border: #27272a;
     --color-track: #262626;
     --color-fill: #4f46e5;
-    --color-label: #888888;
-    --color-mute: #555555;
+    --color-label: #a1a1aa;
+    --color-mute: #52525b;
     --color-dim: #262626;
-    --color-green: #16c784;
+    --color-green: #10b981;
     --color-red: #dc2626;
+
+    --color-accent-bs: #10b981;
+    --color-accent-heston: #22d3ee;
+    --color-accent-bl: #8b5cf6;
+    --color-accent-mc: #f59e0b;
+    --color-accent-apt: #ec4899;
 }
 
 html,
@@ -26,9 +32,33 @@ body,
 
 body {
     font-family: var(--font-sans);
-    background: var(--color-bg2);
+    background: #050505;
     color: var(--color-label);
     overflow: hidden;
+}
+
+/* ── Background depth layers ────────────────── */
+.bg-radial-glow {
+    background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(99, 102, 241, 0.04) 0%, transparent 70%);
+}
+.bg-grid {
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+.bg-noise {
+    position: relative;
+}
+.bg-noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.035;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
 }
 
 /* ── Scrollbars ─────────────────────────────── */
@@ -114,4 +144,75 @@ input[type='range']::-moz-range-thumb {
 /* ── KaTeX baseline alignment ───────────────── */
 .katex {
     font-size: 1.02em;
+}
+
+/* ── Glassmorphism card ─────────────────────── */
+.glass-card {
+    background: rgba(9, 9, 11, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(39, 39, 42, 0.6);
+    transition: border-color 0.35s ease, box-shadow 0.35s ease;
+}
+.glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Module accent glows ────────────────────── */
+.glow-bs:hover    { box-shadow: 0 0 30px -6px rgba(16, 185, 129, 0.25), 0 24px 60px -12px rgba(0,0,0,0.6); }
+.glow-heston:hover { box-shadow: 0 0 30px -6px rgba(34, 211, 238, 0.25), 0 24px 60px -12px rgba(0,0,0,0.6); }
+.glow-bl:hover    { box-shadow: 0 0 30px -6px rgba(139, 92, 246, 0.25), 0 24px 60px -12px rgba(0,0,0,0.6); }
+.glow-mc:hover    { box-shadow: 0 0 30px -6px rgba(245, 158, 11, 0.25), 0 24px 60px -12px rgba(0,0,0,0.6); }
+.glow-apt:hover   { box-shadow: 0 0 30px -6px rgba(236, 72, 153, 0.25), 0 24px 60px -12px rgba(0,0,0,0.6); }
+
+/* ── Launch arrow slide ─────────────────────── */
+.card-launch-arrow {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0.5;
+}
+.group:hover .card-launch-arrow {
+    transform: translateX(4px);
+    opacity: 1;
+}
+
+/* ── Sparkline stroke animation ─────────────── */
+@keyframes sparkline-draw {
+    from { stroke-dashoffset: 200; }
+    to   { stroke-dashoffset: 0; }
+}
+.sparkline-path {
+    stroke-dasharray: 200;
+    animation: sparkline-draw 2s ease-out forwards;
+}
+
+/* ── Module pill badge ──────────────────────── */
+.module-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+/* ── Keycap badge ───────────────────────────── */
+.keycap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 4px;
+    border: 1px solid rgba(63, 63, 70, 0.6);
+    background: rgba(24, 24, 27, 0.8);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: #71717a;
 }
