@@ -5,6 +5,24 @@ import { ChevronDown } from 'lucide-react'
 import type { Scheme } from '../lib/colors'
 import { SCHEMES } from '../lib/colors'
 
+export function useHotkeys(handlers: Record<string, () => void>) {
+  const handlersRef = useRef(handlers)
+  handlersRef.current = handlers
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      const key = e.key.toLowerCase()
+      if (handlersRef.current[key]) {
+        e.preventDefault()
+        handlersRef.current[key]()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+}
+
 export interface SegOption {
   value: string
   label: string

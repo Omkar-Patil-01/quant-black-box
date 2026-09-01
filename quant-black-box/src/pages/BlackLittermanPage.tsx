@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav, FavoritesBar, WorkspacePanel } from '../components/layout'
-import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, Scale } from '../components/ui'
+import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav } from '../components/layout'
+import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
-import MarketPanel from '../components/MarketPanel'
+import LiveMarketIngestion from '../components/LiveMarketIngestion'
+import RightSidebar from '../components/RightSidebar'
 import { BL_FORMULAS } from '../lib/formulas'
 import { BL_NAMES, BL_WMKT, blSolve } from '../lib/math'
 import { signPct } from '../lib/format'
@@ -20,6 +21,17 @@ export default function BlackLittermanPage() {
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
   const recordRun = useWorkspace((st) => st.recordRun)
+  const [leftOpen, setLeftOpen] = useState(true)
+  const [rightOpen, setRightOpen] = useState(true)
+
+  useHotkeys({
+    b: () => setLeftOpen((v) => !v),
+    r: () => setRightOpen((v) => !v),
+    m: () => {
+      const el = document.getElementById('market-data-input')
+      if (el) el.focus()
+    },
+  })
 
   const lam = s.lam / 10
   const tau = s.tau / 1000
@@ -72,6 +84,21 @@ export default function BlackLittermanPage() {
     })
   }, [lam, tau, del, q1, q2, s.metric, s.src])
 
+  const metricsContent = (
+    <StatList>
+      {BL_NAMES.map((name, i) => (
+        <Stat key={`eq${i}`} k={`EQM Ret · ${name}`} v={signPct(stats.eq[i])} tone="price" />
+      ))}
+      {BL_NAMES.map((name, i) => (
+        <Stat key={`po${i}`} k={`Post Ret · ${name}`} v={signPct(stats.po[i])} tone={stats.po[i] < 0 ? 'neg' : 'price'} />
+      ))}
+      <Stat k="Post Vol · Equity" v={(stats.pv0 * 100).toFixed(1) + '%'} />
+      <Stat k="Post Vol · Crypto" v={(stats.pv3 * 100).toFixed(1) + '%'} />
+      <Stat k="View 1 Match (EQY−BND)" v={signPct(stats.res1)} tone={Math.abs(stats.res1) < 1e-3 ? 'price' : 'default'} />
+      <Stat k="View 2 Match (GOLD)" v={signPct(stats.res2)} tone={Math.abs(stats.res2) < 1e-3 ? 'price' : 'default'} />
+    </StatList>
+  )
+
   return (
     <div className="flex h-screen flex-col">
       <Tier1Nav />
@@ -85,81 +112,65 @@ export default function BlackLittermanPage() {
         onReset={() => setResetToken((t) => t + 1)}
       />
       <ModelShell>
-        <FavoritesBar />
-        <WorkspacePanel />
+        {leftOpen && (
+          <LeftPanel>
+            <LiveMarketIngestion onApply={() => {}} />
 
-        <div className="absolute right-4 top-4 z-[7]">
-          <MarketPanel />
+            <Accordion title="PARAMETERS">
+              <ParamLabel>Surface Metric</ParamLabel>
+              <Seg
+                options={[
+                  { value: 'ret', label: 'RETURNS' },
+                  { value: 'wgt', label: 'WEIGHTS' },
+                ]}
+                value={s.metric}
+                onChange={(v) => s.set({ metric: v as BlMetric })}
+              />
+              <ParamLabel>Posterior Source</ParamLabel>
+              <Seg
+                options={[
+                  { value: 'views', label: 'VIEWS' },
+                  { value: 'eqm', label: 'EQM' },
+                ]}
+                value={s.src}
+                onChange={(v) => s.set({ src: v as BlSrc })}
+              />
+              <Slider label="RISK AVERSION (λ)" min={1} max={100} step={1} value={s.lam} display={lam.toFixed(2)} onChange={(v) => s.set({ lam: v })} />
+              <Slider label="UNCERTAINTY (τ)" min={1} max={300} step={1} value={s.tau} display={tau.toFixed(3)} onChange={(v) => s.set({ tau: v })} />
+              <Slider label="VIEW UNCERT (δ)" min={1} max={50} step={1} value={s.del} display={del.toFixed(2)} onChange={(v) => s.set({ del: v })} />
+              <Slider label="VIEW 1 · EQY−BND (Q)" min={-20} max={20} step={1} value={s.q1} display={(q1 * 100).toFixed(1) + '%'} onChange={(v) => s.set({ q1: v })} />
+              <Slider label="VIEW 2 · GOLD (Q)" min={-20} max={30} step={1} value={s.q2} display={(q2 * 100).toFixed(1) + '%'} onChange={(v) => s.set({ q2: v })} />
+            </Accordion>
+
+            <Accordion title="DISPLAY">
+              <DisplayControls value={s} onChange={s.set} />
+            </Accordion>
+          </LeftPanel>
+        )}
+
+        <div className="relative min-w-0 flex-1">
+          <SurfaceChart
+            points={surface.points}
+            dataShape={surface.shape}
+            xName="ASSET"
+            yName="τ"
+            zName={s.metric === 'ret' ? 'RETURN' : 'WEIGHT'}
+            xRange={surface.xRange}
+            yRange={surface.yRange}
+            xLabels={BL_NAMES}
+            scheme={s.scheme}
+            wire={s.wire}
+            grid={s.grid}
+            axes={s.axes}
+            rot={s.rot}
+            resetToken={resetToken}
+          />
+          <Hint text="Drag to rotate · Scroll to zoom · Right-click to pan · Assets × τ · [B] left · [R] right" />
         </div>
 
-        <SurfaceChart
-          points={surface.points}
-          dataShape={surface.shape}
-          xName="ASSET"
-          yName="τ"
-          zName={s.metric === 'ret' ? 'RETURN' : 'WEIGHT'}
-          xRange={surface.xRange}
-          yRange={surface.yRange}
-          xLabels={BL_NAMES}
-          scheme={s.scheme}
-          wire={s.wire}
-          grid={s.grid}
-          axes={s.axes}
-          rot={s.rot}
-          resetToken={resetToken}
-        />
-
-        <LeftPanel>
-          <Accordion title="⚙ PARAMETERS">
-            <ParamLabel>Surface Metric</ParamLabel>
-            <Seg
-              options={[
-                { value: 'ret', label: 'RETURNS' },
-                { value: 'wgt', label: 'WEIGHTS' },
-              ]}
-              value={s.metric}
-              onChange={(v) => s.set({ metric: v as BlMetric })}
-            />
-            <ParamLabel>Posterior Source</ParamLabel>
-            <Seg
-              options={[
-                { value: 'views', label: 'VIEWS' },
-                { value: 'eqm', label: 'EQM' },
-              ]}
-              value={s.src}
-              onChange={(v) => s.set({ src: v as BlSrc })}
-            />
-            <Slider label="RISK AVERSION (λ)" min={1} max={100} step={1} value={s.lam} display={lam.toFixed(2)} onChange={(v) => s.set({ lam: v })} />
-            <Slider label="UNCERTAINTY (τ)" min={1} max={300} step={1} value={s.tau} display={tau.toFixed(3)} onChange={(v) => s.set({ tau: v })} />
-            <Slider label="VIEW UNCERT (δ)" min={1} max={50} step={1} value={s.del} display={del.toFixed(2)} onChange={(v) => s.set({ del: v })} />
-            <Slider label="VIEW 1 · EQY−BND (Q)" min={-20} max={20} step={1} value={s.q1} display={(q1 * 100).toFixed(1) + '%'} onChange={(v) => s.set({ q1: v })} />
-            <Slider label="VIEW 2 · GOLD (Q)" min={-20} max={30} step={1} value={s.q2} display={(q2 * 100).toFixed(1) + '%'} onChange={(v) => s.set({ q2: v })} />
-          </Accordion>
-
-          <Accordion title="◎ DISPLAY">
-            <DisplayControls value={s} onChange={s.set} />
-          </Accordion>
-        </LeftPanel>
-
-        <RightPanel>
-          <div className="px-3.5 pt-3">
-            <StatList>
-              {BL_NAMES.map((name, i) => (
-                <Stat key={`eq${i}`} k={`EQM Ret · ${name}`} v={signPct(stats.eq[i])} tone="price" />
-              ))}
-              {BL_NAMES.map((name, i) => (
-                <Stat key={`po${i}`} k={`Post Ret · ${name}`} v={signPct(stats.po[i])} tone={stats.po[i] < 0 ? 'neg' : 'price'} />
-              ))}
-              <Stat k="Post Vol · Equity" v={(stats.pv0 * 100).toFixed(1) + '%'} />
-              <Stat k="Post Vol · Crypto" v={(stats.pv3 * 100).toFixed(1) + '%'} />
-              <Stat k="View 1 Match (EQY−BND)" v={signPct(stats.res1)} tone={Math.abs(stats.res1) < 1e-3 ? 'price' : 'default'} />
-              <Stat k="View 2 Match (GOLD)" v={signPct(stats.res2)} tone={Math.abs(stats.res2) < 1e-3 ? 'price' : 'default'} />
-            </StatList>
-          </div>
-          <Scale label={(s.metric === 'ret' ? 'POSTERIOR RETURN' : 'POSTERIOR WEIGHT') + (s.src === 'views' ? ' (VIEWS)' : ' (EQM)')} />
-        </RightPanel>
-
-        <Hint text="Drag to rotate • Scroll to zoom • Right-click to pan • Assets × τ" />
+        {rightOpen && (
+          <RightSidebar metricsContent={metricsContent} scaleLabel={(s.metric === 'ret' ? 'POSTERIOR RETURN' : 'POSTERIOR WEIGHT') + (s.src === 'views' ? ' (VIEWS)' : ' (EQM)')} />
+        )}
       </ModelShell>
 
       <FormulaModal open={info} title="Black-Litterman Model" formulas={BL_FORMULAS} onClose={() => setInfo(false)} />

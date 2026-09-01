@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, RightPanel, Tier1Nav, Tier2Nav, FavoritesBar, WorkspacePanel } from '../components/layout'
-import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, Scale } from '../components/ui'
+import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav } from '../components/layout'
+import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
-import MarketPanel from '../components/MarketPanel'
+import LiveMarketIngestion from '../components/LiveMarketIngestion'
+import RightSidebar from '../components/RightSidebar'
 import { APT_FORMULAS } from '../lib/formulas'
 import { aptRet } from '../lib/math'
 import type { AptParams } from '../lib/math'
@@ -21,6 +22,17 @@ export default function AptPage() {
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
   const recordRun = useWorkspace((st) => st.recordRun)
+  const [leftOpen, setLeftOpen] = useState(true)
+  const [rightOpen, setRightOpen] = useState(true)
+
+  useHotkeys({
+    b: () => setLeftOpen((v) => !v),
+    r: () => setRightOpen((v) => !v),
+    m: () => {
+      const el = document.getElementById('market-data-input')
+      if (el) el.focus()
+    },
+  })
 
   const params: AptParams = {
     r: s.r / 100,
@@ -71,6 +83,21 @@ export default function AptPage() {
     })
   }, [s.r, s.lam, s.lams, s.lamv, s.b3, s.al, s.metric])
 
+  const metricsContent = (
+    <StatList>
+      <Stat k="Risk-Free" v={pct(params.r, 2)} tone="price" />
+      <Stat k="Mkt Premium" v={pct(params.lam, 2)} tone="price" />
+      <Stat k="Size Premium" v={pct(params.lams, 2)} tone="price" />
+      <Stat k="Value Premium" v={pct(params.lamv, 2)} tone="price" />
+      <Stat k="Beta HML" v={params.b3.toFixed(2)} />
+      <Stat k="Alpha" v={pct(params.al, 2)} tone="price" />
+      <Stat k="Fair Return (βM=1, βS=0.5)" v={pct(stats.fair)} tone="price" />
+      <Stat k="Alpha-Adj Return" v={pct(stats.aadj)} tone="price" />
+      <Stat k="Zero-Beta Fair" v={pct(stats.zb)} />
+      <Stat k="Plane Slope ∂E/∂βM" v={'+' + (params.lam * 100).toFixed(2) + '%'} />
+    </StatList>
+  )
+
   return (
     <div className="flex h-screen flex-col">
       <Tier1Nav />
@@ -84,72 +111,56 @@ export default function AptPage() {
         onReset={() => setResetToken((t) => t + 1)}
       />
       <ModelShell>
-        <FavoritesBar />
-        <WorkspacePanel />
+        {leftOpen && (
+          <LeftPanel>
+            <LiveMarketIngestion onApply={() => {}} />
 
-        <div className="absolute right-4 top-4 z-[7]">
-          <MarketPanel />
+            <Accordion title="PARAMETERS">
+              <ParamLabel>Surface Metric</ParamLabel>
+              <Seg
+                options={[
+                  { value: 'fair', label: 'FAIR' },
+                  { value: 'alpha', label: 'ALPHA' },
+                ]}
+                value={s.metric}
+                onChange={(v) => s.set({ metric: v as AptMetric })}
+              />
+              <Slider label="RISK-FREE (R)" min={-2} max={10} step={1} value={s.r} display={s.r.toFixed(1) + '%'} onChange={(v) => s.set({ r: v })} />
+              <Slider label="MKT PREM (λM)" min={0} max={20} step={1} value={s.lam} display={s.lam.toFixed(1) + '%'} onChange={(v) => s.set({ lam: v })} />
+              <Slider label="SIZE PREM (λS)" min={-10} max={10} step={1} value={s.lams} display={s.lams.toFixed(1) + '%'} onChange={(v) => s.set({ lams: v })} />
+              <Slider label="VALUE PREM (λV)" min={-10} max={10} step={1} value={s.lamv} display={s.lamv.toFixed(1) + '%'} onChange={(v) => s.set({ lamv: v })} />
+              <Slider label="BETA HML (β3)" min={-200} max={200} step={1} value={s.b3} display={params.b3.toFixed(2)} onChange={(v) => s.set({ b3: v })} />
+              <Slider label="ALPHA (α)" min={-10} max={10} step={1} value={s.al} display={(s.al >= 0 ? '+' : '') + s.al.toFixed(1) + '%'} onChange={(v) => s.set({ al: v })} />
+            </Accordion>
+
+            <Accordion title="DISPLAY">
+              <DisplayControls value={s} onChange={s.set} />
+            </Accordion>
+          </LeftPanel>
+        )}
+
+        <div className="relative min-w-0 flex-1">
+          <SurfaceChart
+            points={surface.points}
+            dataShape={surface.shape}
+            xName="β MARKET"
+            yName="β SIZE"
+            zName="E[R]"
+            xRange={surface.xRange}
+            yRange={surface.yRange}
+            scheme={s.scheme}
+            wire={s.wire}
+            grid={s.grid}
+            axes={s.axes}
+            rot={s.rot}
+            resetToken={resetToken}
+          />
+          <Hint text="Drag to rotate · Scroll to zoom · Right-click to pan · E[R] = r + βM·λM + βS·λS + βV·λV + α · [B] left · [R] right" />
         </div>
 
-        <SurfaceChart
-          points={surface.points}
-          dataShape={surface.shape}
-          xName="β MARKET"
-          yName="β SIZE"
-          zName="E[R]"
-          xRange={surface.xRange}
-          yRange={surface.yRange}
-          scheme={s.scheme}
-          wire={s.wire}
-          grid={s.grid}
-          axes={s.axes}
-          rot={s.rot}
-          resetToken={resetToken}
-        />
-
-        <LeftPanel>
-          <Accordion title="⚙ PARAMETERS">
-            <ParamLabel>Surface Metric</ParamLabel>
-            <Seg
-              options={[
-                { value: 'fair', label: 'FAIR' },
-                { value: 'alpha', label: 'ALPHA' },
-              ]}
-              value={s.metric}
-              onChange={(v) => s.set({ metric: v as AptMetric })}
-            />
-            <Slider label="RISK-FREE (R)" min={-2} max={10} step={1} value={s.r} display={s.r.toFixed(1) + '%'} onChange={(v) => s.set({ r: v })} />
-            <Slider label="MKT PREM (λM)" min={0} max={20} step={1} value={s.lam} display={s.lam.toFixed(1) + '%'} onChange={(v) => s.set({ lam: v })} />
-            <Slider label="SIZE PREM (λS)" min={-10} max={10} step={1} value={s.lams} display={s.lams.toFixed(1) + '%'} onChange={(v) => s.set({ lams: v })} />
-            <Slider label="VALUE PREM (λV)" min={-10} max={10} step={1} value={s.lamv} display={s.lamv.toFixed(1) + '%'} onChange={(v) => s.set({ lamv: v })} />
-            <Slider label="BETA HML (β3)" min={-200} max={200} step={1} value={s.b3} display={params.b3.toFixed(2)} onChange={(v) => s.set({ b3: v })} />
-            <Slider label="ALPHA (α)" min={-10} max={10} step={1} value={s.al} display={(s.al >= 0 ? '+' : '') + s.al.toFixed(1) + '%'} onChange={(v) => s.set({ al: v })} />
-          </Accordion>
-
-          <Accordion title="◎ DISPLAY">
-            <DisplayControls value={s} onChange={s.set} />
-          </Accordion>
-        </LeftPanel>
-
-        <RightPanel>
-          <div className="px-3.5 pt-3">
-            <StatList>
-              <Stat k="Risk-Free" v={pct(params.r, 2)} tone="price" />
-              <Stat k="Mkt Premium" v={pct(params.lam, 2)} tone="price" />
-              <Stat k="Size Premium" v={pct(params.lams, 2)} tone="price" />
-              <Stat k="Value Premium" v={pct(params.lamv, 2)} tone="price" />
-              <Stat k="Beta HML" v={params.b3.toFixed(2)} />
-              <Stat k="Alpha" v={pct(params.al, 2)} tone="price" />
-              <Stat k="Fair Return (βM=1, βS=0.5)" v={pct(stats.fair)} tone="price" />
-              <Stat k="Alpha-Adj Return" v={pct(stats.aadj)} tone="price" />
-              <Stat k="Zero-Beta Fair" v={pct(stats.zb)} />
-              <Stat k="Plane Slope ∂E/∂βM" v={'+' + (params.lam * 100).toFixed(2) + '%'} />
-            </StatList>
-          </div>
-          <Scale label={s.metric === 'alpha' ? 'ALPHA-ADJ RETURN' : 'FAIR RETURN'} />
-        </RightPanel>
-
-        <Hint text="Drag to rotate • Scroll to zoom • Right-click to pan • E[R] = r + βM·λM + βS·λS + βV·λV + α" />
+        {rightOpen && (
+          <RightSidebar metricsContent={metricsContent} scaleLabel={s.metric === 'alpha' ? 'ALPHA-ADJ RETURN' : 'FAIR RETURN'} />
+        )}
       </ModelShell>
 
       <FormulaModal open={info} title="Arbitrage Pricing Theory" formulas={APT_FORMULAS} onClose={() => setInfo(false)} />

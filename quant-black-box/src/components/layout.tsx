@@ -4,12 +4,7 @@ import type { View } from '../store/app'
 import { useApp } from '../store/app'
 import { useWorkspace, extractModelParams } from '../store/workspace'
 import { isModelId } from '../types/workspace'
-import FavoritesSidebar from './FavoritesSidebar'
-import ScenarioPanel from './ScenarioPanel'
-import ScenarioCompare from './ScenarioCompare'
-import PresetManager from './PresetManager'
-import RecentRuns from './RecentRuns'
-import { IconBtn, Accordion } from './ui'
+import { IconBtn } from './ui'
 
 const TIER1 = ['Models', 'Risk', 'Research', 'Support']
 
@@ -166,51 +161,16 @@ export function Header({
   )
 }
 
-export function FavoritesBar() {
-  return (
-    <aside className="absolute left-4 top-4 z-[7] w-[120px] rounded-md border border-border bg-black p-2 shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
-      <FavoritesSidebar />
-    </aside>
-  )
-}
-
-export function WorkspacePanel() {
-  return (
-    <aside className="absolute left-[132px] top-4 z-[7] w-[280px] max-h-[calc(100%-32px)] overflow-y-auto rounded-md border border-border bg-black shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
-      <div className="p-3">
-        <Accordion title="📁 SCENARIOS">
-          <ScenarioPanel />
-          <div className="mt-2">
-            <ScenarioCompare />
-          </div>
-        </Accordion>
-        <Accordion title="🔖 PRESETS">
-          <PresetManager />
-        </Accordion>
-        <Accordion title="📋 RECENT RUNS">
-          <RecentRuns />
-        </Accordion>
-      </div>
-    </aside>
-  )
-}
-
 export function ModelShell({ children }: { children: ReactNode }) {
-  return <div className="relative flex min-h-0 flex-1">{children}</div>
+  return <div className="flex min-h-0 flex-1 overflow-hidden">{children}</div>
 }
 
 export function LeftPanel({ children }: { children: ReactNode }) {
   return (
-    <aside className="absolute left-4 top-4 z-[7] max-h-[calc(100%-32px)] w-[280px] overflow-y-auto rounded-md border border-border bg-black shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
-      {children}
-    </aside>
-  )
-}
-
-export function RightPanel({ children }: { children: ReactNode }) {
-  return (
-    <aside className="absolute right-4 top-4 z-[7] flex max-h-[calc(100%-32px)] w-[264px] flex-col overflow-y-auto rounded-md border border-border bg-black shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
-      {children}
+    <aside className="flex h-full w-[320px] shrink-0 flex-col overflow-y-auto border-r border-border bg-black">
+      <div className="p-3.5 pt-3 space-y-0">
+        {children}
+      </div>
     </aside>
   )
 }

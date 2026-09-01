@@ -95,3 +95,29 @@ export async function fetchSeries(
   if (end) params.set('end', end)
   return apiFetch(`/market/series?${params}`)
 }
+
+export function computeVolatility(closes: number[]): number {
+  if (closes.length < 2) return 0
+  const logReturns: number[] = []
+  for (let i = 1; i < closes.length; i++) {
+    if (closes[i] > 0 && closes[i - 1] > 0) {
+      logReturns.push(Math.log(closes[i] / closes[i - 1]))
+    }
+  }
+  if (logReturns.length === 0) return 0
+  const mean = logReturns.reduce((a, b) => a + b, 0) / logReturns.length
+  const variance = logReturns.reduce((a, r) => a + (r - mean) * (r - mean), 0) / (logReturns.length - 1)
+  return Math.sqrt(variance) * Math.sqrt(252)
+}
+
+export function computeDrift(closes: number[], lookbackYears: number): number {
+  if (closes.length < 2 || lookbackYears <= 0) return 0
+  const first = closes[0]
+  const last = closes[closes.length - 1]
+  if (first <= 0 || last <= 0) return 0
+  return (Math.pow(last / first, 1 / lookbackYears) - 1) * 100
+}
+
+export function lookbackYears(months: number): number {
+  return months / 12
+}

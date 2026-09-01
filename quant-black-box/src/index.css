@@ -141,6 +141,18 @@ input[type='range']::-moz-range-thumb {
     background: linear-gradient(90deg, #7f1d1d, #dc2626 25%, #000 50%, #16c784 75%, #14532d);
 }
 
+/* ── Sidebar transitions ────────────────────── */
+.sidebar-collapse {
+    width: 0;
+    overflow: hidden;
+    border-width: 0;
+    opacity: 0;
+    transition: width 0.3s ease, opacity 0.2s ease, border-width 0.3s ease;
+}
+.sidebar-expand {
+    transition: width 0.3s ease, opacity 0.2s ease;
+}
+
 /* ── KaTeX baseline alignment ───────────────── */
 .katex {
     font-size: 1.02em;
