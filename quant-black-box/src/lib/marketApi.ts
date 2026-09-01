@@ -96,7 +96,17 @@ export async function fetchSeries(
   return apiFetch(`/market/series?${params}`)
 }
 
-export function computeVolatility(closes: number[]): number {
+export type CandleInterval = '1d' | '1h' | '1m'
+
+export function annualizationFactor(interval: CandleInterval): number {
+  switch (interval) {
+    case '1d': return Math.sqrt(252)
+    case '1h': return Math.sqrt(252 * 6.5)
+    case '1m': return Math.sqrt(252 * 6.5 * 60)
+  }
+}
+
+export function computeVolatility(closes: number[], interval: CandleInterval = '1d'): number {
   if (closes.length < 2) return 0
   const logReturns: number[] = []
   for (let i = 1; i < closes.length; i++) {
@@ -107,7 +117,7 @@ export function computeVolatility(closes: number[]): number {
   if (logReturns.length === 0) return 0
   const mean = logReturns.reduce((a, b) => a + b, 0) / logReturns.length
   const variance = logReturns.reduce((a, r) => a + (r - mean) * (r - mean), 0) / (logReturns.length - 1)
-  return Math.sqrt(variance) * Math.sqrt(252)
+  return Math.sqrt(variance) * annualizationFactor(interval)
 }
 
 export function computeDrift(closes: number[], lookbackYears: number): number {
