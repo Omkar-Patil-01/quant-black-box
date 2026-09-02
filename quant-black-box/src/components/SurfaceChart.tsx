@@ -21,13 +21,14 @@ export interface SurfaceChartProps {
   rot: boolean
   resetToken: number
   xLabels?: string[]
+  mobile?: boolean
 }
 
 const AXIS_LABEL = { color: '#555555', fontSize: 8, fontFamily: 'JetBrains Mono' }
 const AXIS_NAME = { color: '#666666', fontSize: 10, fontFamily: 'JetBrains Mono' }
 
 function buildOption(props: SurfaceChartProps): Record<string, unknown> {
-  const { points, dataShape, xName, yName, zName, xRange, yRange, scheme, wire, grid, axes, xLabels } = props
+  const { points, dataShape, xName, yName, zName, xRange, yRange, scheme, wire, grid, axes, xLabels, mobile } = props
 
   let min = Infinity
   let max = -Infinity
@@ -43,16 +44,16 @@ function buildOption(props: SurfaceChartProps): Record<string, unknown> {
 
   const axis = (name: string, range: [number, number]): Record<string, unknown> => ({
     name,
-    nameTextStyle: AXIS_NAME,
+    nameTextStyle: mobile ? { ...AXIS_NAME, fontSize: 8 } : AXIS_NAME,
     type: 'value',
     min: range[0],
     max: range[1],
     axisLabel: xLabels
       ? {
-          ...AXIS_LABEL,
+          ...(mobile ? { ...AXIS_LABEL, fontSize: 6 } : AXIS_LABEL),
           formatter: (v: number) => xLabels[Math.round(v)] ?? String(v),
         }
-      : AXIS_LABEL,
+      : mobile ? { ...AXIS_LABEL, fontSize: 6 } : AXIS_LABEL,
     axisLine: { show: axes, lineStyle: { color: '#333333' } },
     axisTick: { show: false },
     splitLine: { show: grid, lineStyle: { color: '#222222', width: 1 } },
@@ -75,15 +76,15 @@ function buildOption(props: SurfaceChartProps): Record<string, unknown> {
     zAxis3D: { ...axis(zName, [min, max]), name: zName },
     grid3D: {
       show: true,
-      boxWidth: 184,
-      boxDepth: 160,
-      boxHeight: 136,
+      boxWidth: mobile ? 120 : 184,
+      boxDepth: mobile ? 100 : 160,
+      boxHeight: mobile ? 80 : 136,
       environment: 'transparent',
       axisPointer: { show: false },
       viewControl: {
         alpha: 30,
         beta: 40,
-        distance: 220,
+        distance: mobile ? 160 : 220,
         minDistance: 60,
         maxDistance: 700,
         rotateSensitivity: 1,
@@ -158,5 +159,5 @@ export default function SurfaceChart(props: SurfaceChartProps) {
     } as unknown as echarts.EChartsOption)
   }, [resetToken])
 
-  return <div ref={divRef} className="absolute inset-0" />
+  return <div ref={divRef} className={`absolute inset-0 ${props.mobile ? 'touch-lock' : ''}`} />
 }

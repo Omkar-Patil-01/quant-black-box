@@ -17,10 +17,53 @@ const TABS: { value: RightTab; label: string }[] = [
 interface RightSidebarProps {
   metricsContent: ReactNode
   scaleLabel?: string
+  mobile?: boolean
 }
 
-export default function RightSidebar({ metricsContent, scaleLabel }: RightSidebarProps) {
+export default function RightSidebar({ metricsContent, scaleLabel, mobile }: RightSidebarProps) {
   const [tab, setTab] = useState<RightTab>('metrics')
+
+  if (mobile) {
+    return (
+      <div className="p-3 pt-2">
+        <div className="mb-3 flex gap-1 overflow-x-auto">
+          {TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setTab(t.value)}
+              className={`relative shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-[9px] font-semibold tracking-[0.12em] transition-colors min-h-[32px] ${
+                tab === t.value ? 'border-white bg-white text-black' : 'border-border text-label'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'metrics' && (
+          <div>
+            {metricsContent}
+            {scaleLabel && <Scale label={scaleLabel} />}
+          </div>
+        )}
+
+        {tab === 'scenarios' && (
+          <div className="space-y-3">
+            <ScenarioPanel />
+            <ScenarioCompare />
+            <PresetManager />
+          </div>
+        )}
+
+        {tab === 'recent' && (
+          <div>
+            <RecentRuns />
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <aside className="flex h-full w-[340px] shrink-0 flex-col overflow-hidden border-l border-border bg-black">

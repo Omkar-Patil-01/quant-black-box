@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { ChevronDown } from 'lucide-react'
@@ -36,7 +36,7 @@ export function Seg({ options, value, onChange }: { options: SegOption[]; value:
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
-          className={`flex-1 cursor-pointer rounded-full border py-2 text-[10px] font-semibold tracking-[0.12em] transition-colors ${
+          className={`flex-1 cursor-pointer rounded-full border py-2 text-[10px] font-semibold tracking-[0.12em] transition-colors min-h-[36px] md:min-h-[32px] ${
             value === o.value ? 'border-white bg-white text-black' : 'border-white bg-black text-white'
           }`}
         >
@@ -59,6 +59,7 @@ export function Slider({
   value,
   display,
   onChange,
+  mobile,
 }: {
   label: string
   min: number
@@ -67,8 +68,61 @@ export function Slider({
   value: number
   display: string
   onChange: (v: number) => void
+  mobile?: boolean
 }) {
   const p = ((value - min) / (max - min)) * 100
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+
+  const commitEdit = useCallback(() => {
+    setEditing(false)
+    const num = Number(draft)
+    if (!isNaN(num)) {
+      onChange(Math.min(max, Math.max(min, num)))
+    }
+  }, [draft, min, max, onChange])
+
+  useEffect(() => {
+    if (!editing) setDraft(String(value))
+  }, [value, editing])
+
+  if (mobile) {
+    return (
+      <div className="mb-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <label className="text-[9px] font-medium tracking-[0.12em] text-label">{label}</label>
+          {editing ? (
+            <input
+              type="number"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => e.key === 'Enter' && commitEdit()}
+              autoFocus
+              className="w-[72px] rounded border border-fill bg-[#0a0a0a] px-1.5 py-0.5 text-right font-mono text-[11px] font-medium text-white focus:outline-none"
+            />
+          ) : (
+            <output
+              className="cursor-pointer font-mono text-[11px] font-medium text-white"
+              onClick={() => { setEditing(true); setDraft(String(value)) }}
+            >
+              {display}
+            </output>
+          )}
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ background: `linear-gradient(90deg,#4f46e5 ${p}%,#262626 ${p}%)` }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="mb-4">
       <div className="mb-2 flex items-baseline justify-between">
@@ -97,13 +151,13 @@ export function Switch({ label, checked, onChange }: { label: string; checked: b
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative h-5 w-[34px] cursor-pointer rounded-full transition-colors ${
+        className={`relative h-6 w-[40px] cursor-pointer rounded-full transition-colors min-h-[32px] min-w-[44px] flex items-center ${
           checked ? 'bg-green' : 'bg-track'
         }`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${
-            checked ? 'left-4 bg-black' : 'left-0.5 bg-[#888888]'
+          className={`absolute top-1 h-4 w-4 rounded-full transition-all ${
+            checked ? 'left-6 bg-black' : 'left-1.5 bg-[#888888]'
           }`}
         />
       </button>
@@ -128,7 +182,7 @@ export function ColorDropdown({ value, onChange }: { value: Scheme; onChange: (v
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full cursor-pointer items-center gap-2.5 rounded border border-border bg-[#0a0a0a] px-2.5 py-[7px] font-mono text-[10px] text-white hover:border-[#555555]"
+        className="flex w-full cursor-pointer items-center gap-2.5 rounded border border-border bg-[#0a0a0a] px-2.5 py-[7px] font-mono text-[10px] text-white hover:border-[#555555] min-h-[36px]"
       >
         <span className={`sw ${current.swatchClass}`} />
         <span>{current.label}</span>
@@ -144,7 +198,7 @@ export function ColorDropdown({ value, onChange }: { value: Scheme; onChange: (v
                 onChange(s.value)
                 setOpen(false)
               }}
-              className={`flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2 font-mono text-[10px] hover:bg-[#141414] ${
+              className={`flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2 font-mono text-[10px] hover:bg-[#141414] min-h-[36px] ${
                 s.value === value ? 'text-white' : 'text-label'
               }`}
             >
@@ -158,14 +212,14 @@ export function ColorDropdown({ value, onChange }: { value: Scheme; onChange: (v
   )
 }
 
-export function Accordion({ title, children }: { title: string; children: ReactNode }) {
-  const [open, setOpen] = useState(true)
+export function Accordion({ title, children, defaultOpen = true }: { title: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="border-b border-line">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full cursor-pointer items-center justify-between px-3.5 py-3 text-left"
+        className="flex w-full cursor-pointer items-center justify-between px-3.5 py-3 text-left min-h-[40px]"
       >
         <span className="text-[10px] font-semibold tracking-[0.14em] text-white">{title}</span>
         <motion.span
@@ -190,8 +244,16 @@ export function Accordion({ title, children }: { title: string; children: ReactN
 
 export type StatTone = 'default' | 'price' | 'neg'
 
-export function Stat({ k, v, tone = 'default' }: { k: string; v: string; tone?: StatTone }) {
+export function Stat({ k, v, tone = 'default', mobile }: { k: string; v: string; tone?: StatTone; mobile?: boolean }) {
   const toneCls = tone === 'price' ? 'text-green' : tone === 'neg' ? 'text-red' : 'text-white'
+  if (mobile) {
+    return (
+      <div className="flex flex-col gap-0.5 px-2.5 py-2">
+        <span className="text-[8px] font-medium uppercase tracking-[0.12em] text-label leading-tight">{k}</span>
+        <span className={`font-mono text-sm font-bold ${toneCls}`}>{v}</span>
+      </div>
+    )
+  }
   return (
     <div className="flex items-center justify-between border-b border-[#131313] py-[7px] last:border-b-0">
       <span className="text-[8.5px] font-medium uppercase tracking-[0.14em] text-label">{k}</span>
@@ -200,7 +262,10 @@ export function Stat({ k, v, tone = 'default' }: { k: string; v: string; tone?: 
   )
 }
 
-export function StatList({ children }: { children: ReactNode }) {
+export function StatList({ children, mobile }: { children: ReactNode; mobile?: boolean }) {
+  if (mobile) {
+    return <div className="metrics-grid-mobile">{children}</div>
+  }
   return <div className="pb-2.5">{children}</div>
 }
 

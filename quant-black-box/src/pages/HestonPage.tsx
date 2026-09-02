@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav } from '../components/layout'
+import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -11,7 +11,7 @@ import { HESTON_FORMULAS } from '../lib/formulas'
 import { hestonP1, hestonPrice } from '../lib/math'
 import type { HestonParams } from '../lib/math'
 import { money } from '../lib/format'
-import { useDebounced } from '../lib/hooks'
+import { useDebounced, useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
 import type { Metric, Opt } from '../store/models'
@@ -20,6 +20,9 @@ import { useHeston } from '../store/models'
 export default function HestonPage() {
   const s = useHeston()
   const setView = useApp((st) => st.setView)
+  const mobilePanel = useApp((st) => st.mobilePanel)
+  const setMobilePanel = useApp((st) => st.setMobilePanel)
+  const mobile = useIsMobile()
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
   const recordRun = useWorkspace((st) => st.recordRun)
@@ -27,8 +30,8 @@ export default function HestonPage() {
   const [rightOpen, setRightOpen] = useState(true)
 
   useHotkeys({
-    b: () => setLeftOpen((v) => !v),
-    r: () => setRightOpen((v) => !v),
+    b: () => { if (!mobile) setLeftOpen((v) => !v) },
+    r: () => { if (!mobile) setRightOpen((v) => !v) },
     m: () => {
       const el = document.getElementById('market-data-input')
       if (el) el.focus()
@@ -39,6 +42,7 @@ export default function HestonPage() {
   const K = s.K
   const T = s.T / 100
   const r = s.r / 100
+  const gridN = mobile ? 20 : 26
 
   const params: HestonParams = {
     r,
@@ -52,7 +56,7 @@ export default function HestonPage() {
   const surfaceKey = useDebounced({ K, T, r, v0: s.v0, kappa: s.kappa, theta: s.theta, sigv: s.sigv, rho: s.rho, metric: s.metric, opt: s.opt })
 
   const surface = useMemo(() => {
-    const N = 26
+    const N = gridN
     const x0 = surfaceKey.K * 0.4
     const x1 = surfaceKey.K * 1.6
     const y0 = 0.05
@@ -90,7 +94,7 @@ export default function HestonPage() {
       xRange: [x0, x1] as [number, number],
       yRange: [y0, y1] as [number, number],
     }
-  }, [surfaceKey])
+  }, [surfaceKey, gridN])
 
   const stats = useMemo(() => {
     const m = hestonPrice(S0, K, T, params)
@@ -139,19 +143,116 @@ export default function HestonPage() {
   }, [s.set])
 
   const metricsContent = (
-    <StatList>
-      <Stat k="ATM Call (1Y)" v={money(stats.atm)} tone="price" />
-      <Stat k="Call" v={money(stats.call)} tone="price" />
-      <Stat k="Put" v={money(stats.put)} tone="price" />
-      <Stat k="Forward Vol √E[vT]" v={(stats.fvol * 100).toFixed(1) + '%'} />
-      <Stat k="Feller 2κθ/σv²" v={stats.feller.toFixed(2) + (stats.feller > 1 ? ' ✓' : ' ⚠')} />
-      <Stat k="Delta" v={stats.delta.toFixed(4)} />
-      <Stat k="Gamma" v={stats.gamma.toFixed(4)} />
-      <Stat k="Vega" v={stats.vega.toFixed(3)} />
-      <Stat k="Theta" v={stats.theta.toFixed(3)} />
-      <Stat k="Rho" v={stats.rho.toFixed(3)} />
+    <StatList mobile={mobile}>
+      <Stat k="ATM Call (1Y)" v={money(stats.atm)} tone="price" mobile={mobile} />
+      <Stat k="Call" v={money(stats.call)} tone="price" mobile={mobile} />
+      <Stat k="Put" v={money(stats.put)} tone="price" mobile={mobile} />
+      <Stat k="Forward Vol" v={(stats.fvol * 100).toFixed(1) + '%'} mobile={mobile} />
+      <Stat k="Feller" v={stats.feller.toFixed(2) + (stats.feller > 1 ? ' ✓' : ' ⚠')} mobile={mobile} />
+      <Stat k="Delta" v={stats.delta.toFixed(4)} mobile={mobile} />
+      <Stat k="Gamma" v={stats.gamma.toFixed(4)} mobile={mobile} />
+      <Stat k="Vega" v={stats.vega.toFixed(3)} mobile={mobile} />
+      <Stat k="Theta" v={stats.theta.toFixed(3)} mobile={mobile} />
+      <Stat k="Rho" v={stats.rho.toFixed(3)} mobile={mobile} />
     </StatList>
   )
+
+  const paramsContent = (
+    <>
+      <LiveMarketIngestion onApply={handleApplyLiveData} />
+
+      <Accordion title="PARAMETERS">
+        <ParamLabel>Option Type</ParamLabel>
+        <Seg
+          options={[
+            { value: 'call', label: 'CALL' },
+            { value: 'put', label: 'PUT' },
+          ]}
+          value={s.opt}
+          onChange={(v) => s.set({ opt: v as Opt })}
+        />
+        <ParamLabel>Surface Metric</ParamLabel>
+        <Seg
+          options={[
+            { value: 'price', label: 'PRICE' },
+            { value: 'delta', label: 'DELTA' },
+          ]}
+          value={s.metric}
+          onChange={(v) => s.set({ metric: v as Metric })}
+        />
+        <Slider label="SPOT (S)" min={10} max={300} step={1} value={S0} display={money(S0)} onChange={(v) => s.set({ S0: v })} mobile={mobile} />
+        <Slider label="STRIKE (K)" min={10} max={300} step={1} value={K} display={money(K)} onChange={(v) => s.set({ K: v })} mobile={mobile} />
+        <Slider label="TIME (T)" min={1} max={200} step={1} value={s.T} display={T.toFixed(2) + 'y'} onChange={(v) => s.set({ T: v })} mobile={mobile} />
+        <Slider label="RISK-FREE (R)" min={-5} max={20} step={1} value={s.r} display={s.r.toFixed(1) + '%'} onChange={(v) => s.set({ r: v })} mobile={mobile} />
+        <Slider label="INIT VOL" min={1} max={80} step={1} value={s.v0} display={s.v0.toFixed(1) + '%'} onChange={(v) => s.set({ v0: v })} mobile={mobile} />
+        <Slider label="REVERSION (κ)" min={1} max={100} step={1} value={s.kappa} display={params.kappa.toFixed(2)} onChange={(v) => s.set({ kappa: v })} mobile={mobile} />
+        <Slider label="LONG VOL" min={1} max={80} step={1} value={s.theta} display={s.theta.toFixed(1) + '%'} onChange={(v) => s.set({ theta: v })} mobile={mobile} />
+        <Slider label="VOL OF VOL (σv)" min={1} max={200} step={1} value={s.sigv} display={s.sigv.toFixed(1) + '%'} onChange={(v) => s.set({ sigv: v })} mobile={mobile} />
+        <Slider label="CORRELATION (ρ)" min={-100} max={100} step={1} value={s.rho} display={params.rho.toFixed(2)} onChange={(v) => s.set({ rho: v })} mobile={mobile} />
+      </Accordion>
+
+      <Accordion title="DISPLAY">
+        <DisplayControls value={s} onChange={s.set} />
+      </Accordion>
+    </>
+  )
+
+  if (mobile) {
+    return (
+      <div className="flex h-screen flex-col">
+        <Header
+          title="3D HESTON PRICE SURFACE"
+          badge={s.opt.toUpperCase()}
+          badgeTone={s.opt === 'put' ? 'red' : 'green'}
+          onInfo={() => setInfo(true)}
+          onBack={() => setView('index')}
+          onReset={() => setResetToken((t) => t + 1)}
+        />
+
+        <div className="relative min-h-0 flex-1">
+          {mobilePanel === 'canvas' && (
+            <>
+              <SurfaceChart
+                points={surface.points}
+                dataShape={surface.shape}
+                xName="SPOT"
+                yName="TIME"
+                zName={s.metric.toUpperCase()}
+                xRange={surface.xRange}
+                yRange={surface.yRange}
+                scheme={s.scheme}
+                wire={s.wire}
+                grid={s.grid}
+                axes={s.axes}
+                rot={s.rot}
+                resetToken={resetToken}
+                mobile
+              />
+              <MobileCanvasControls
+                onReset={() => setResetToken((t) => t + 1)}
+                onColorScheme={() => {}}
+                onFullscreen={() => {
+                  if (document.fullscreenElement) document.exitFullscreen()
+                  else document.documentElement.requestFullscreen()
+                }}
+              />
+            </>
+          )}
+        </div>
+
+        <BottomSheet open={mobilePanel === 'params'} onClose={() => setMobilePanel('canvas')} title="Parameters & Data">
+          {paramsContent}
+        </BottomSheet>
+
+        <BottomSheet open={mobilePanel === 'metrics'} onClose={() => setMobilePanel('canvas')} title="Metrics & Results">
+          {metricsContent}
+        </BottomSheet>
+
+        <BottomMobileDock />
+        <FormulaModal open={info} title="Heston Stochastic Volatility" formulas={HESTON_FORMULAS} onClose={() => setInfo(false)} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen flex-col">
@@ -168,41 +269,7 @@ export default function HestonPage() {
       <ModelShell>
         {leftOpen && (
           <LeftPanel>
-            <LiveMarketIngestion onApply={handleApplyLiveData} />
-
-            <Accordion title="PARAMETERS">
-              <ParamLabel>Option Type</ParamLabel>
-              <Seg
-                options={[
-                  { value: 'call', label: 'CALL' },
-                  { value: 'put', label: 'PUT' },
-                ]}
-                value={s.opt}
-                onChange={(v) => s.set({ opt: v as Opt })}
-              />
-              <ParamLabel>Surface Metric</ParamLabel>
-              <Seg
-                options={[
-                  { value: 'price', label: 'PRICE' },
-                  { value: 'delta', label: 'DELTA' },
-                ]}
-                value={s.metric}
-                onChange={(v) => s.set({ metric: v as Metric })}
-              />
-              <Slider label="SPOT (S)" min={10} max={300} step={1} value={S0} display={money(S0)} onChange={(v) => s.set({ S0: v })} />
-              <Slider label="STRIKE (K)" min={10} max={300} step={1} value={K} display={money(K)} onChange={(v) => s.set({ K: v })} />
-              <Slider label="TIME (T)" min={1} max={200} step={1} value={s.T} display={T.toFixed(2) + 'y'} onChange={(v) => s.set({ T: v })} />
-              <Slider label="RISK-FREE (R)" min={-5} max={20} step={1} value={s.r} display={s.r.toFixed(1) + '%'} onChange={(v) => s.set({ r: v })} />
-              <Slider label="INIT VOL (√v₀)" min={1} max={80} step={1} value={s.v0} display={s.v0.toFixed(1) + '%'} onChange={(v) => s.set({ v0: v })} />
-              <Slider label="REVERSION (κ)" min={1} max={100} step={1} value={s.kappa} display={params.kappa.toFixed(2)} onChange={(v) => s.set({ kappa: v })} />
-              <Slider label="LONG VOL (√θ)" min={1} max={80} step={1} value={s.theta} display={s.theta.toFixed(1) + '%'} onChange={(v) => s.set({ theta: v })} />
-              <Slider label="VOL OF VOL (σv)" min={1} max={200} step={1} value={s.sigv} display={s.sigv.toFixed(1) + '%'} onChange={(v) => s.set({ sigv: v })} />
-              <Slider label="CORRELATION (ρ)" min={-100} max={100} step={1} value={s.rho} display={params.rho.toFixed(2)} onChange={(v) => s.set({ rho: v })} />
-            </Accordion>
-
-            <Accordion title="DISPLAY">
-              <DisplayControls value={s} onChange={s.set} />
-            </Accordion>
+            {paramsContent}
           </LeftPanel>
         )}
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav } from '../components/layout'
+import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -10,6 +10,7 @@ import RightSidebar from '../components/RightSidebar'
 import { BL_FORMULAS } from '../lib/formulas'
 import { BL_NAMES, BL_WMKT, blSolve } from '../lib/math'
 import { signPct } from '../lib/format'
+import { useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
 import type { BlMetric, BlSrc } from '../store/models'
@@ -18,15 +19,19 @@ import { useBl } from '../store/models'
 export default function BlackLittermanPage() {
   const s = useBl()
   const setView = useApp((st) => st.setView)
+  const mobilePanel = useApp((st) => st.mobilePanel)
+  const setMobilePanel = useApp((st) => st.setMobilePanel)
+  const mobile = useIsMobile()
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
   const recordRun = useWorkspace((st) => st.recordRun)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
+  const gridN = mobile ? 18 : 25
 
   useHotkeys({
-    b: () => setLeftOpen((v) => !v),
-    r: () => setRightOpen((v) => !v),
+    b: () => { if (!mobile) setLeftOpen((v) => !v) },
+    r: () => { if (!mobile) setRightOpen((v) => !v) },
     m: () => {
       const el = document.getElementById('market-data-input')
       if (el) el.focus()
@@ -40,7 +45,7 @@ export default function BlackLittermanPage() {
   const q2 = s.q2 / 100
 
   const surface = useMemo(() => {
-    const NY = 25
+    const NY = gridN
     const t0 = tau
     const points: SurfacePoint[] = []
     for (let j = 0; j < NY; j++) {
@@ -59,7 +64,7 @@ export default function BlackLittermanPage() {
       xRange: [0, BL_NAMES.length - 1] as [number, number],
       yRange: [t0 * 0.2, t0 * 4] as [number, number],
     }
-  }, [lam, tau, del, q1, q2, s.metric, s.src])
+  }, [lam, tau, del, q1, q2, s.metric, s.src, gridN])
 
   const stats = useMemo(() => {
     const r = blSolve(tau, { lam, del, q1, q2 })
@@ -85,19 +90,113 @@ export default function BlackLittermanPage() {
   }, [lam, tau, del, q1, q2, s.metric, s.src])
 
   const metricsContent = (
-    <StatList>
+    <StatList mobile={mobile}>
       {BL_NAMES.map((name, i) => (
-        <Stat key={`eq${i}`} k={`EQM Ret · ${name}`} v={signPct(stats.eq[i])} tone="price" />
+        <Stat key={`eq${i}`} k={`EQM ${name}`} v={signPct(stats.eq[i])} tone="price" mobile={mobile} />
       ))}
       {BL_NAMES.map((name, i) => (
-        <Stat key={`po${i}`} k={`Post Ret · ${name}`} v={signPct(stats.po[i])} tone={stats.po[i] < 0 ? 'neg' : 'price'} />
+        <Stat key={`po${i}`} k={`Post ${name}`} v={signPct(stats.po[i])} tone={stats.po[i] < 0 ? 'neg' : 'price'} mobile={mobile} />
       ))}
-      <Stat k="Post Vol · Equity" v={(stats.pv0 * 100).toFixed(1) + '%'} />
-      <Stat k="Post Vol · Crypto" v={(stats.pv3 * 100).toFixed(1) + '%'} />
-      <Stat k="View 1 Match (EQY−BND)" v={signPct(stats.res1)} tone={Math.abs(stats.res1) < 1e-3 ? 'price' : 'default'} />
-      <Stat k="View 2 Match (GOLD)" v={signPct(stats.res2)} tone={Math.abs(stats.res2) < 1e-3 ? 'price' : 'default'} />
+      <Stat k="Post Vol Equity" v={(stats.pv0 * 100).toFixed(1) + '%'} mobile={mobile} />
+      <Stat k="Post Vol Crypto" v={(stats.pv3 * 100).toFixed(1) + '%'} mobile={mobile} />
+      <Stat k="View 1 Match" v={signPct(stats.res1)} tone={Math.abs(stats.res1) < 1e-3 ? 'price' : 'default'} mobile={mobile} />
+      <Stat k="View 2 Match" v={signPct(stats.res2)} tone={Math.abs(stats.res2) < 1e-3 ? 'price' : 'default'} mobile={mobile} />
     </StatList>
   )
+
+  const paramsContent = (
+    <>
+      <LiveMarketIngestion onApply={() => {}} />
+
+      <Accordion title="PARAMETERS">
+        <ParamLabel>Surface Metric</ParamLabel>
+        <Seg
+          options={[
+            { value: 'ret', label: 'RETURNS' },
+            { value: 'wgt', label: 'WEIGHTS' },
+          ]}
+          value={s.metric}
+          onChange={(v) => s.set({ metric: v as BlMetric })}
+        />
+        <ParamLabel>Posterior Source</ParamLabel>
+        <Seg
+          options={[
+            { value: 'views', label: 'VIEWS' },
+            { value: 'eqm', label: 'EQM' },
+          ]}
+          value={s.src}
+          onChange={(v) => s.set({ src: v as BlSrc })}
+        />
+        <Slider label="RISK AVERSION (λ)" min={1} max={100} step={1} value={s.lam} display={lam.toFixed(2)} onChange={(v) => s.set({ lam: v })} mobile={mobile} />
+        <Slider label="UNCERTAINTY (τ)" min={1} max={300} step={1} value={s.tau} display={tau.toFixed(3)} onChange={(v) => s.set({ tau: v })} mobile={mobile} />
+        <Slider label="VIEW UNCERT (δ)" min={1} max={50} step={1} value={s.del} display={del.toFixed(2)} onChange={(v) => s.set({ del: v })} mobile={mobile} />
+        <Slider label="VIEW 1 EQY-BND" min={-20} max={20} step={1} value={s.q1} display={(q1 * 100).toFixed(1) + '%'} onChange={(v) => s.set({ q1: v })} mobile={mobile} />
+        <Slider label="VIEW 2 GOLD" min={-20} max={30} step={1} value={s.q2} display={(q2 * 100).toFixed(1) + '%'} onChange={(v) => s.set({ q2: v })} mobile={mobile} />
+      </Accordion>
+
+      <Accordion title="DISPLAY">
+        <DisplayControls value={s} onChange={s.set} />
+      </Accordion>
+    </>
+  )
+
+  if (mobile) {
+    return (
+      <div className="flex h-screen flex-col">
+        <Header
+          title="3D BLACK-LITTERMAN RETURN SURFACE"
+          badge={s.src === 'views' ? 'VIEWS' : 'EQM'}
+          badgeTone="green"
+          onInfo={() => setInfo(true)}
+          onBack={() => setView('index')}
+          onReset={() => setResetToken((t) => t + 1)}
+        />
+
+        <div className="relative min-h-0 flex-1">
+          {mobilePanel === 'canvas' && (
+            <>
+              <SurfaceChart
+                points={surface.points}
+                dataShape={surface.shape}
+                xName="ASSET"
+                yName="τ"
+                zName={s.metric === 'ret' ? 'RETURN' : 'WEIGHT'}
+                xRange={surface.xRange}
+                yRange={surface.yRange}
+                xLabels={BL_NAMES}
+                scheme={s.scheme}
+                wire={s.wire}
+                grid={s.grid}
+                axes={s.axes}
+                rot={s.rot}
+                resetToken={resetToken}
+                mobile
+              />
+              <MobileCanvasControls
+                onReset={() => setResetToken((t) => t + 1)}
+                onColorScheme={() => {}}
+                onFullscreen={() => {
+                  if (document.fullscreenElement) document.exitFullscreen()
+                  else document.documentElement.requestFullscreen()
+                }}
+              />
+            </>
+          )}
+        </div>
+
+        <BottomSheet open={mobilePanel === 'params'} onClose={() => setMobilePanel('canvas')} title="Parameters & Data">
+          {paramsContent}
+        </BottomSheet>
+
+        <BottomSheet open={mobilePanel === 'metrics'} onClose={() => setMobilePanel('canvas')} title="Metrics & Results">
+          {metricsContent}
+        </BottomSheet>
+
+        <BottomMobileDock />
+        <FormulaModal open={info} title="Black-Litterman Model" formulas={BL_FORMULAS} onClose={() => setInfo(false)} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen flex-col">
@@ -114,37 +213,7 @@ export default function BlackLittermanPage() {
       <ModelShell>
         {leftOpen && (
           <LeftPanel>
-            <LiveMarketIngestion onApply={() => {}} />
-
-            <Accordion title="PARAMETERS">
-              <ParamLabel>Surface Metric</ParamLabel>
-              <Seg
-                options={[
-                  { value: 'ret', label: 'RETURNS' },
-                  { value: 'wgt', label: 'WEIGHTS' },
-                ]}
-                value={s.metric}
-                onChange={(v) => s.set({ metric: v as BlMetric })}
-              />
-              <ParamLabel>Posterior Source</ParamLabel>
-              <Seg
-                options={[
-                  { value: 'views', label: 'VIEWS' },
-                  { value: 'eqm', label: 'EQM' },
-                ]}
-                value={s.src}
-                onChange={(v) => s.set({ src: v as BlSrc })}
-              />
-              <Slider label="RISK AVERSION (λ)" min={1} max={100} step={1} value={s.lam} display={lam.toFixed(2)} onChange={(v) => s.set({ lam: v })} />
-              <Slider label="UNCERTAINTY (τ)" min={1} max={300} step={1} value={s.tau} display={tau.toFixed(3)} onChange={(v) => s.set({ tau: v })} />
-              <Slider label="VIEW UNCERT (δ)" min={1} max={50} step={1} value={s.del} display={del.toFixed(2)} onChange={(v) => s.set({ del: v })} />
-              <Slider label="VIEW 1 · EQY−BND (Q)" min={-20} max={20} step={1} value={s.q1} display={(q1 * 100).toFixed(1) + '%'} onChange={(v) => s.set({ q1: v })} />
-              <Slider label="VIEW 2 · GOLD (Q)" min={-20} max={30} step={1} value={s.q2} display={(q2 * 100).toFixed(1) + '%'} onChange={(v) => s.set({ q2: v })} />
-            </Accordion>
-
-            <Accordion title="DISPLAY">
-              <DisplayControls value={s} onChange={s.set} />
-            </Accordion>
+            {paramsContent}
           </LeftPanel>
         )}
 
