@@ -82,3 +82,34 @@ export const APT_FORMULAS: FormulaDef[] = [
     tex: String.raw`\mathbb{E}[R] = r + \beta_M \lambda_M + \beta_S \lambda_S + \beta_V \lambda_V`,
   },
 ]
+
+export const KF_FORMULAS: FormulaDef[] = [
+  {
+    label: 'State Transition',
+    tex: String.raw`\mathbf{x}_t = \mathbf{F}\mathbf{x}_{t-1} + \mathbf{w}_t, \quad \mathbf{w}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{Q})`,
+  },
+  {
+    label: 'Observation',
+    tex: String.raw`y_t = \mathbf{H}\mathbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, R)`,
+  },
+  {
+    label: 'Predict State',
+    tex: String.raw`\hat{\mathbf{x}}_{t|t-1} = \mathbf{F}\hat{\mathbf{x}}_{t-1|t-1}`,
+  },
+  {
+    label: 'Predict Covariance',
+    tex: String.raw`\mathbf{P}_{t|t-1} = \mathbf{F}\mathbf{P}_{t-1}\mathbf{F}' + \mathbf{Q}`,
+  },
+  {
+    label: 'Kalman Gain',
+    tex: String.raw`\mathbf{K}_t = \mathbf{P}_{t|t-1}\mathbf{H}'(\mathbf{H}\mathbf{P}_{t|t-1}\mathbf{H}' + \mathbf{R})^{-1}`,
+  },
+  {
+    label: 'Update State',
+    tex: String.raw`\hat{\mathbf{x}}_{t|t} = \hat{\mathbf{x}}_{t|t-1} + \mathbf{K}_t(y_t - \mathbf{H}\hat{\mathbf{x}}_{t|t-1})`,
+  },
+  {
+    label: 'Update Covariance',
+    tex: String.raw`\mathbf{P}_{t|t} = (\mathbf{I} - \mathbf{K}_t\mathbf{H})\mathbf{P}_{t|t-1}`,
+  },
+]

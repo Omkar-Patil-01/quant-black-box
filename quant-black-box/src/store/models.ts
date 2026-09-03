@@ -165,3 +165,28 @@ export const useApt = create<AptState>((set) => ({
   al: 0,
   set: (p) => set(p),
 }))
+
+export interface KfState extends DisplayState {
+  n: number
+  m: number
+  Q: number
+  R: number
+  nDays: number
+  seed: number
+  set: (p: Partial<KfState>) => void
+}
+
+export const useKf = create<KfState>((set) => ({
+  scheme: 'pl',
+  wire: true,
+  grid: true,
+  axes: true,
+  rot: false,
+  n: 2,
+  m: 1,
+  Q: 0.01,
+  R: 0.1,
+  nDays: 20,
+  seed: 42,
+  set: (p) => set(p),
+}))

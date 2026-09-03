@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aptRet, blSolve, bs, hestonPrice, normCdf, simulateMc } from './math'
+import { aptRet, blSolve, bs, hestonPrice, kalmanFilter, normCdf, simulateMc } from './math'
 
 describe('normCdf', () => {
   it('matches known values', () => {
@@ -107,5 +107,50 @@ describe('APT', () => {
     const c = aptRet(1, 0.5, false, p)
     expect(a - c).toBeCloseTo(p.al, 12)
     expect(c - b).toBeCloseTo(1 * p.lam + 0.5 * p.lams, 12)
+  })
+})
+
+describe('Kalman Filter', () => {
+  it('returns correct number of ticks', () => {
+    const result = kalmanFilter({ n: 2, m: 1, Q: 0.01, R: 0.1, nDays: 20, seed: 42 })
+    expect(result).toHaveLength(21)
+  })
+
+  it('has Kalman gain bounded in [0, 1]', () => {
+    const result = kalmanFilter({ n: 2, m: 1, Q: 0.01, R: 0.1, nDays: 30, seed: 42 })
+    for (const tick of result) {
+      for (const row of tick.kalmanGain) {
+        for (const v of row) {
+          expect(v).toBeGreaterThanOrEqual(-0.01)
+          expect(v).toBeLessThanOrEqual(1.01)
+        }
+      }
+    }
+  })
+
+  it('converges: trace(P) decreases for fully observed system', () => {
+    const result = kalmanFilter({ n: 1, m: 1, Q: 0.01, R: 0.1, nDays: 40, seed: 42 })
+    const early = result[5].traceP
+    const late = result[35].traceP
+    expect(late).toBeLessThan(early)
+  })
+
+  it('first tick has zero observations', () => {
+    const result = kalmanFilter({ n: 2, m: 1, Q: 0.01, R: 0.1, nDays: 10, seed: 42 })
+    expect(result[0].observation[0]).toBe(0)
+    expect(result[0].innovation[0]).toBe(0)
+  })
+
+  it('handles 1D case (n=1, m=1)', () => {
+    const result = kalmanFilter({ n: 1, m: 1, Q: 0.05, R: 0.5, nDays: 15, seed: 99 })
+    expect(result).toHaveLength(16)
+    expect(result[0].filteredState).toHaveLength(1)
+    expect(result[0].stateCovDiag).toHaveLength(1)
+  })
+
+  it('produces deterministic results for same seed', () => {
+    const a = kalmanFilter({ n: 2, m: 1, Q: 0.01, R: 0.1, nDays: 10, seed: 42 })
+    const b = kalmanFilter({ n: 2, m: 1, Q: 0.01, R: 0.1, nDays: 10, seed: 42 })
+    expect(a).toEqual(b)
   })
 })

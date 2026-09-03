@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { ModelExecutionSnapshot, ModelId, ParameterPreset, ScenarioConfig, WorkspaceState } from '../types/workspace'
-import type { BsState, HestonState, BlState, McState, AptState } from './models'
+import type { BsState, HestonState, BlState, McState, AptState, KfState } from './models'
 import { defaultState, getStorageProvider } from '../lib/storage'
 
 const MAX_RECENT_RUNS = 50
@@ -352,6 +352,10 @@ export async function extractModelParams(modelId: ModelId): Promise<Record<strin
       const s = m.useApt.getState()
       return { metric: s.metric, r: s.r, lam: s.lam, lams: s.lams, lamv: s.lamv, b3: s.b3, al: s.al, scheme: s.scheme, wire: s.wire, grid: s.grid, axes: s.axes, rot: s.rot }
     },
+    kf: () => {
+      const s = m.useKf.getState()
+      return { n: s.n, m: s.m, Q: s.Q, R: s.R, nDays: s.nDays, seed: s.seed, scheme: s.scheme, wire: s.wire, grid: s.grid, axes: s.axes, rot: s.rot }
+    },
   }
   return extractors[modelId]()
 }
@@ -370,6 +374,7 @@ export async function applyModelParams(modelId: ModelId, params: Record<string, 
     bl: () => m.useBl.getState().set(safeParams as Partial<BlState>),
     mc: () => m.useMc.getState().set(safeParams as Partial<McState>),
     apt: () => m.useApt.getState().set(safeParams as Partial<AptState>),
+    kf: () => m.useKf.getState().set(safeParams as Partial<KfState>),
   }
   setters[modelId]()
 }

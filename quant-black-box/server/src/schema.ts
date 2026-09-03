@@ -55,7 +55,7 @@ export async function initSchema() {
   }
   await db.execute({
     sql: 'INSERT OR IGNORE INTO favorites (id, model_ids) VALUES (1, ?)',
-    args: [JSON.stringify(['bs', 'heston', 'bl', 'mc', 'apt'])],
+    args: [JSON.stringify(['bs', 'heston', 'bl', 'mc', 'apt', 'kf'])],
   });
   console.log('[DB] Schema initialized');
 }

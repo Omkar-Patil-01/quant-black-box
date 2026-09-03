@@ -15,6 +15,7 @@ export const TIER2: { view: View; label: string }[] = [
   { view: 'bl', label: 'Black-Litterman Model' },
   { view: 'mc', label: 'Monte Carlo Portfolio Simulation' },
   { view: 'apt', label: 'Arbitrage Pricing Theory' },
+  { view: 'kf', label: 'Kalman Filter' },
 ]
 
 export function Tier1Nav() {

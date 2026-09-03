@@ -5,7 +5,7 @@ import { useWorkspace, applyModelParams } from '../store/workspace'
 import type { ModelId, ModelExecutionSnapshot } from '../types/workspace'
 import { useApp } from '../store/app'
 
-const VALID_MODEL_IDS: ModelId[] = ['bs', 'heston', 'bl', 'mc', 'apt']
+const VALID_MODEL_IDS: ModelId[] = ['bs', 'heston', 'bl', 'mc', 'apt', 'kf']
 
 const MODEL_LABELS: Record<ModelId, string> = {
   bs: 'BSM',
@@ -13,6 +13,7 @@ const MODEL_LABELS: Record<ModelId, string> = {
   bl: 'BL',
   mc: 'MC',
   apt: 'APT',
+  kf: 'KF',
 }
 
 function formatTime(iso: string): string {

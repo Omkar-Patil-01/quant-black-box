@@ -15,7 +15,7 @@ function defaultState(): WorkspaceState {
     activeModelId: null,
     activeScenarioId: null,
     lastUpdated: new Date().toISOString(),
-    favorites: { modelIds: ['bs', 'heston', 'bl', 'mc', 'apt'] },
+    favorites: { modelIds: ['bs', 'heston', 'bl', 'mc', 'apt', 'kf'] },
     scenarios: {},
     recentRuns: [],
     presets: {},

@@ -181,13 +181,44 @@ class AptResponse(BaseModel):
     grid: GridResponse | None = None
 
 
+# ────────────── Kalman Filter ──────────────
+
+
+class KfParams(BaseModel):
+    n: int = Field(default=2, ge=1, le=5)
+    m: int = Field(default=1, ge=1, le=3)
+    Q: float = Field(default=0.01, gt=0)
+    R: float = Field(default=0.1, gt=0)
+    nDays: int = Field(default=20, ge=1, le=60)
+    seed: int = Field(default=42)
+
+
+class KfRequest(KfParams):
+    pass
+
+
+class KfTickResult(BaseModel):
+    step: int
+    trueState: list[float]
+    observation: list[float]
+    filteredState: list[float]
+    stateCovDiag: list[float]
+    innovation: list[float]
+    kalmanGain: list[list[float]]
+    traceP: float
+
+
+class KfResponse(BaseModel):
+    ticks: list[KfTickResult]
+
+
 # ══════════════════════════════════════════════════════════
 # WORKSPACE SCHEMAS
 # ══════════════════════════════════════════════════════════
 
 
 class FavoriteConfig(BaseModel):
-    modelIds: list[str] = ["bs", "heston", "bl", "mc", "apt"]
+    modelIds: list[str] = ["bs", "heston", "bl", "mc", "apt", "kf"]
 
 
 class ScenarioConfig(BaseModel):

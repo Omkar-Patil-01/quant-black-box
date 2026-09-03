@@ -407,3 +407,156 @@ class AptParams:
 
 def apt_ret(b1: float, b2: float, with_alpha: bool, p: AptParams) -> float:
     return p.r + b1 * p.lam + b2 * p.lams + p.b3 * p.lamv + (p.al if with_alpha else 0.0)
+
+
+# ═══════════════ KALMAN FILTER ═══════════════
+
+
+@dataclass
+class KfParams:
+    n: int = 2
+    m: int = 1
+    Q: float = 0.01
+    R: float = 0.1
+    nDays: int = 20
+    seed: int = 42
+
+
+@dataclass
+class KfTickResult:
+    step: int
+    trueState: list[float]
+    observation: list[float]
+    filteredState: list[float]
+    stateCovDiag: list[float]
+    innovation: list[float]
+    kalmanGain: list[list[float]]
+    traceP: float
+
+
+def _kf_identity(n: int) -> list[list[float]]:
+    return [[1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
+
+
+def _kf_mul(A: list[list[float]], B: list[list[float]]) -> list[list[float]]:
+    n, m, k = len(A), len(B[0]), len(B)
+    return [[sum(A[i][p] * B[p][j] for p in range(k)) for j in range(m)] for i in range(n)]
+
+
+def _kf_trans(A: list[list[float]]) -> list[list[float]]:
+    return [list(row) for row in zip(*A)]
+
+
+def _kf_scale(A: list[list[float]], c: float) -> list[list[float]]:
+    return [[x * c for x in row] for row in A]
+
+
+def _kf_add(A: list[list[float]], B: list[list[float]]) -> list[list[float]]:
+    return [[A[i][j] + B[i][j] for j in range(len(A[0]))] for i in range(len(A))]
+
+
+def _kf_inv(A: list[list[float]]) -> list[list[float]] | None:
+    n = len(A)
+    M = [row[:] + [1.0 if i == j else 0.0 for j in range(n)] for i, row in enumerate(A)]
+    for col in range(n):
+        piv = max(range(col, n), key=lambda r: abs(M[r][col]))
+        if abs(M[piv][col]) < 1e-14:
+            return None
+        M[col], M[piv] = M[piv], M[col]
+        d = M[col][col]
+        for j in range(2 * n):
+            M[col][j] /= d
+        for r in range(n):
+            if r == col:
+                continue
+            f = M[r][col]
+            for j in range(2 * n):
+                M[r][j] -= f * M[col][j]
+    return [row[n:] for row in M]
+
+
+def _kf_trace(A: list[list[float]]) -> float:
+    return sum(A[i][i] for i in range(len(A)))
+
+
+def kalman_filter(p: KfParams) -> list[KfTickResult]:
+    import math
+
+    n, m, Q, R, nDays, seed = p.n, p.m, p.Q, p.R, p.nDays, p.seed
+
+    rng_state = seed & 0xFFFFFFFF
+
+    def rng() -> float:
+        nonlocal rng_state
+        rng_state = (rng_state + 0x6D2B79F5) & 0xFFFFFFFF
+        t = rng_state
+        t = ((t ^ (t >> 15)) * (1 | t)) & 0xFFFFFFFF
+        old = t
+        prod = ((old ^ (old >> 7)) * (61 | old)) & 0xFFFFFFFF
+        t = ((old + prod) & 0xFFFFFFFF) ^ old
+        return ((t ^ (t >> 14)) >>> 0) / 4294967296
+
+    def gauss() -> float:
+        u, v = 0.0, 0.0
+        while u == 0:
+            u = rng()
+        while v == 0:
+            v = rng()
+        return math.sqrt(-2 * math.log(u)) * math.cos(2 * math.pi * v)
+
+    F = _kf_identity(n)
+    H = [[1.0 if j == i else 0.0 for j in range(n)] for i in range(m)]
+    Qmat = _kf_scale(_kf_identity(n), Q)
+    Rmat = _kf_scale(_kf_identity(m), R)
+
+    x_true = [100.0 if i == 0 else 0.0 for i in range(n)]
+    x_est = [100.0] * n
+    P = _kf_scale(_kf_identity(n), 10.0)
+
+    results: list[KfTickResult] = []
+
+    for t in range(nDays + 1):
+        K = [[0.0] * m for _ in range(n)]
+
+        if t > 0:
+            w = [math.sqrt(Q) * gauss() for _ in range(n)]
+            x_true = [_kf_mul(F, [[v] for v in x_true])[i][0] + w[i] for i in range(n)]
+
+            v_noise = [math.sqrt(R) * gauss() for _ in range(m)]
+            y_true = [_kf_mul(H, [[v] for v in x_true])[i][0] for i in range(m)]
+            y_obs = [y_true[i] + v_noise[i] for i in range(m)]
+
+            x_pred = [_kf_mul(F, [[v] for v in x_est])[i][0] for i in range(n)]
+            P_pred = _kf_add(_kf_mul(_kf_mul(F, P), _kf_trans(F)), Qmat)
+
+            pred_obs = [_kf_mul(H, [[v] for v in x_pred])[i][0] for i in range(m)]
+            innovation = [y_obs[i] - pred_obs[i] for i in range(m)]
+
+            S = _kf_add(_kf_mul(_kf_mul(H, P_pred), _kf_trans(H)), Rmat)
+            Sinv = _kf_inv(S)
+            if Sinv:
+                K = _kf_mul(_kf_mul(P_pred, _kf_trans(H)), Sinv)
+
+            innov_vec = [[v] for v in innovation]
+            kinnov = [_kf_mul(K, innov_vec)[i][0] for i in range(n)]
+            x_est = [x_pred[i] + kinnov[i] for i in range(n)]
+
+            KH = _kf_mul(K, H)
+            IminusKH = _kf_add(_kf_identity(n), _kf_scale(KH, -1.0))
+            P = _kf_mul(IminusKH, P_pred)
+
+        obs = [_kf_mul(H, [[v] for v in x_true])[i][0] for i in range(m)]
+        pred_obs_final = [_kf_mul(H, [[v] for v in x_est])[i][0] for i in range(m)]
+
+        results.append(KfTickResult(
+            step=t,
+            trueState=list(x_true),
+            observation=[0.0] * m if t == 0 else obs,
+            filteredState=list(x_est),
+            stateCovDiag=[math.sqrt(max(0, P[i][i])) * 2 for i in range(n)],
+            innovation=[0.0] * m if t == 0 else [obs[i] - pred_obs_final[i] for i in range(m)],
+            kalmanGain=[row[:] for row in K],
+            traceP=_kf_trace(P),
+        ))
+
+    return results

@@ -93,3 +93,29 @@ def test_apt_is_linear_in_factor_exposures():
     c = engine.apt_ret(1, 0.5, False, p)
     assert math.isclose(a - c, p.al, abs_tol=1e-12)
     assert math.isclose(c - b, 1 * p.lam + 0.5 * p.lams, abs_tol=1e-12)
+
+
+def test_kf_returns_correct_length():
+    result = engine.kalman_filter(engine.KfParams(n=2, m=1, Q=0.01, R=0.1, nDays=20, seed=42))
+    assert len(result) == 21
+
+
+def test_kf_gain_bounded():
+    result = engine.kalman_filter(engine.KfParams(n=2, m=1, Q=0.01, R=0.1, nDays=30, seed=42))
+    for tick in result:
+        for row in tick.kalmanGain:
+            for v in row:
+                assert -0.01 <= v <= 1.01
+
+
+def test_kf_converges():
+    result = engine.kalman_filter(engine.KfParams(n=1, m=1, Q=0.01, R=0.1, nDays=40, seed=42))
+    assert result[35].traceP < result[5].traceP
+
+
+def test_kf_deterministic():
+    a = engine.kalman_filter(engine.KfParams(n=2, m=1, Q=0.01, R=0.1, nDays=10, seed=42))
+    b = engine.kalman_filter(engine.KfParams(n=2, m=1, Q=0.01, R=0.1, nDays=10, seed=42))
+    for ta, tb in zip(a, b):
+        assert ta.trueState == tb.trueState
+        assert ta.filteredState == tb.filteredState

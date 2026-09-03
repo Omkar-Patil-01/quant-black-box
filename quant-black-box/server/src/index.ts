@@ -10,6 +10,7 @@ import hestonRoutes from './routes/heston.js';
 import blRoutes from './routes/bl.js';
 import mcRoutes from './routes/mc.js';
 import aptRoutes from './routes/apt.js';
+import kfRoutes from './routes/kf.js';
 import workspaceRoutes from './routes/workspace.js';
 import marketRoutes from './routes/market.js';
 
@@ -24,6 +25,7 @@ app.use('/api/heston', hestonRoutes);
 app.use('/api/bl', blRoutes);
 app.use('/api/mc', mcRoutes);
 app.use('/api/apt', aptRoutes);
+app.use('/api/kf', kfRoutes);
 app.use('/api/workspace', workspaceRoutes);
 app.use('/api/market', marketRoutes);
 

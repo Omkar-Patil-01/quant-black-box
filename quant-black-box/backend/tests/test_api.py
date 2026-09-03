@@ -22,7 +22,7 @@ def test_models():
     res = client.get("/api/models")
     assert res.status_code == 200
     ids = [m["id"] for m in res.json()]
-    assert ids == ["bs", "heston", "bl", "mc", "apt"]
+    assert ids == ["bs", "heston", "bl", "mc", "apt", "kf"]
 
 
 def test_bs_matches_engine():
@@ -123,6 +123,25 @@ def test_apt_grid():
     grid = res.json()["grid"]
     assert grid["shape"] == [10, 10]
     assert len(grid["points"]) == 100
+
+
+def test_kf():
+    payload = {"n": 2, "m": 1, "Q": 0.01, "R": 0.1, "nDays": 10, "seed": 42}
+    res = client.post("/api/kf", json=payload)
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["ticks"]) == 11
+    first = body["ticks"][0]
+    assert first["step"] == 0
+    assert len(first["trueState"]) == 2
+    assert len(first["filteredState"]) == 2
+
+
+def test_kf_defaults():
+    res = client.post("/api/kf", json={})
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["ticks"]) == 21
 
 
 def test_unknown_route_returns_404():

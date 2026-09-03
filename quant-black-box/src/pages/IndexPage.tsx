@@ -61,6 +61,15 @@ const MODELS: ModelMeta[] = [
     metrics: ['MULTI-FACTOR', 'BETA LOADINGS', 'PREMIA'],
     accent: '#ec4899',
   },
+  {
+    view: 'kf',
+    code: '06',
+    short: 'KALMAN',
+    label: 'Kalman Filter',
+    tagline: 'Recursive denoiser. Recovers the unknown true price from noisy ticks without lagging.',
+    metrics: ['DENOISING', 'STATE SPACE', 'Q & R TUNING'],
+    accent: '#FF5E00',
+  },
 ]
 
 function LiveClock() {
@@ -132,7 +141,7 @@ export default function IndexPage() {
             BLACK BOX
           </h1>
           <p className="mt-2 font-mono text-[10px] tracking-[0.08em] text-zinc-500">
-            Five classic models · 3D surfaces · Live Greeks · Drag, orbit, explore
+            Six classic models · 3D surfaces · Live Greeks · Drag, orbit, explore
           </p>
         </motion.div>
 

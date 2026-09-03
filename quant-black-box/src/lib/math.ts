@@ -229,7 +229,7 @@ export interface BlResult {
   res2: number
 }
 
-function mTrans(A: number[][]): number[][] {
+export function mTrans(A: number[][]): number[][] {
   const n = A.length
   const m = A[0].length
   const T: number[][] = Array.from({ length: m }, () => Array(n).fill(0))
@@ -237,7 +237,7 @@ function mTrans(A: number[][]): number[][] {
   return T
 }
 
-function mMul(A: number[][], B: number[][]): number[][] {
+export function mMul(A: number[][], B: number[][]): number[][] {
   const n = A.length
   const m = B[0].length
   const k = B.length
@@ -251,19 +251,19 @@ function mMul(A: number[][], B: number[][]): number[][] {
   return C
 }
 
-function mScale(A: number[][], c: number): number[][] {
+export function mScale(A: number[][], c: number): number[][] {
   return A.map((r) => r.map((x) => x * c))
 }
 
-function mAdd(A: number[][], B: number[][]): number[][] {
+export function mAdd(A: number[][], B: number[][]): number[][] {
   return A.map((r, i) => r.map((x, j) => x + B[i][j]))
 }
 
-function mDiag(v: number[]): number[][] {
+export function mDiag(v: number[]): number[][] {
   return v.map((x, i) => v.map((_, j) => (i === j ? x : 0)))
 }
 
-function mInv(A: number[][]): number[][] | null {
+export function mInv(A: number[][]): number[][] | null {
   const n = A.length
   const M = A.map((r, i) => [...r, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))])
   for (let col = 0; col < n; col++) {
@@ -331,7 +331,7 @@ export interface McSimulation {
 
 export const MC_STEPS = 60
 
-function mulberry32(a: number): () => number {
+export function mulberry32(a: number): () => number {
   return function () {
     a |= 0
     a = (a + 0x6d2b79f5) | 0
@@ -341,7 +341,7 @@ function mulberry32(a: number): () => number {
   }
 }
 
-function nextGauss(rng: () => number): number {
+export function nextGauss(rng: () => number): number {
   let u = 0
   let v = 0
   while (u === 0) u = rng()
@@ -390,4 +390,105 @@ export interface AptParams {
 
 export function aptRet(b1: number, b2: number, withAlpha: boolean, p: AptParams): number {
   return p.r + b1 * p.lam + b2 * p.lams + p.b3 * p.lamv + (withAlpha ? p.al : 0)
+}
+
+/* ═════════ KALMAN FILTER ENGINE ═════════ */
+
+export interface KfParams {
+  n: number
+  m: number
+  Q: number
+  R: number
+  nDays: number
+  seed: number
+}
+
+export interface KfTickResult {
+  step: number
+  trueState: number[]
+  observation: number[]
+  filteredState: number[]
+  stateCovDiag: number[]
+  innovation: number[]
+  kalmanGain: number[][]
+  traceP: number
+}
+
+function kfIdentity(n: number): number[][] {
+  return Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)))
+}
+
+function kfTrace(A: number[][]): number {
+  let s = 0
+  for (let i = 0; i < A.length; i++) s += A[i][i]
+  return s
+}
+
+export function kalmanFilter(p: KfParams): KfTickResult[] {
+  const { n, m, Q, R, nDays, seed } = p
+  const rng = mulberry32(seed)
+
+  const F = kfIdentity(n)
+  const H: number[][] = Array.from({ length: m }, (_, i) =>
+    Array.from({ length: n }, (_, j) => (j === i ? 1 : 0)),
+  )
+  const Qmat = mScale(kfIdentity(n), Q)
+  const Rmat = mScale(kfIdentity(m), R)
+
+  let xTrue: number[] = Array.from({ length: n }, (_, i) => (i === 0 ? 100 : 0))
+  let xEst: number[] = Array.from({ length: n }, () => 100)
+  let P = mScale(kfIdentity(n), 10)
+
+  const results: KfTickResult[] = []
+
+  let K: number[][] = Array.from({ length: n }, () => Array(m).fill(0))
+
+  for (let t = 0; t <= nDays; t++) {
+    if (t > 0) {
+      const w = Array.from({ length: n }, () => Math.sqrt(Q) * nextGauss(rng))
+      xTrue = mMul(F, xTrue.map((v) => [v])).map((r) => r[0]).map((v, i) => v + w[i])
+
+      const vNoise = Array.from({ length: m }, () => Math.sqrt(R) * nextGauss(rng))
+      const yTrue = mMul(H, xTrue.map((val) => [val])).map((r) => r[0])
+      const yObs = yTrue.map((val, i) => val + vNoise[i])
+      const yObsArr = yObs
+
+      const xPred = mMul(F, xEst.map((v) => [v])).map((r) => r[0])
+      const PPred = mAdd(mMul(mMul(F, P), mTrans(F)), Qmat)
+
+      const innovation = yObsArr.map((v, i) => v - mMul(H, xPred.map((s) => [s]))[i][0])
+
+      const S = mAdd(mMul(mMul(H, PPred), mTrans(H)), Rmat)
+      const Sinv = mInv(S)
+      if (Sinv) {
+        K = mMul(mMul(PPred, mTrans(H)), Sinv)
+      } else {
+        K = Array.from({ length: n }, () => Array(m).fill(0))
+      }
+
+      const innovationVec = innovation.map((v) => [v])
+      const Kinnov = mMul(K, innovationVec).map((r) => r[0])
+      xEst = xPred.map((v, i) => v + Kinnov[i])
+
+      const KH = mMul(K, H)
+      const IminusKH = mAdd(kfIdentity(n), mScale(KH, -1))
+      P = mMul(IminusKH, PPred)
+    }
+
+    const obs = mMul(H, xTrue.map((v) => [v])).map((r) => r[0])
+    const predObs = mMul(H, xEst.map((v) => [v])).map((r) => r[0])
+
+    results.push({
+      step: t,
+      trueState: [...xTrue],
+      observation: t === 0 ? Array(m).fill(0) : obs,
+      filteredState: [...xEst],
+      stateCovDiag: Array.from({ length: n }, (_, i) => Math.sqrt(Math.max(0, P[i][i])) * 2),
+      innovation: t === 0 ? Array(m).fill(0) : obs.map((v, i) => v - predObs[i]),
+      kalmanGain: K.map((r) => [...r]),
+      traceP: kfTrace(P),
+    })
+  }
+
+  return results
 }

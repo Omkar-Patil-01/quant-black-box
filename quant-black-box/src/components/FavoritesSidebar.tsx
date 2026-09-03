@@ -4,7 +4,7 @@ import { useWorkspace } from '../store/workspace'
 import type { ModelId } from '../types/workspace'
 import { useApp, type View } from '../store/app'
 
-const ALL_MODELS: ModelId[] = ['bs', 'heston', 'bl', 'mc', 'apt']
+const ALL_MODELS: ModelId[] = ['bs', 'heston', 'bl', 'mc', 'apt', 'kf']
 
 const MODEL_META: Record<ModelId, { label: string; short: string; accent: string }> = {
   bs: { label: 'Black-Scholes', short: 'BSM', accent: '#16c784' },
@@ -12,6 +12,7 @@ const MODEL_META: Record<ModelId, { label: string; short: string; accent: string
   bl: { label: 'Black-Litterman', short: 'BL', accent: '#a78bfa' },
   mc: { label: 'Monte Carlo', short: 'MC', accent: '#fbbf24' },
   apt: { label: 'Arbitrage Pricing', short: 'APT', accent: '#f472b6' },
+  kf: { label: 'Kalman Filter', short: 'KF', accent: '#FF5E00' },
 }
 
 export default function FavoritesSidebar() {

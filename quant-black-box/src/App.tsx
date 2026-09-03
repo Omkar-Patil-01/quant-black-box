@@ -12,6 +12,7 @@ import HestonPage from './pages/HestonPage'
 import BlackLittermanPage from './pages/BlackLittermanPage'
 import MonteCarloPage from './pages/MonteCarloPage'
 import AptPage from './pages/AptPage'
+import KalmanFilterPage from './pages/KalmanFilterPage'
 
 export default function App() {
   const view = useApp((s) => s.view)
@@ -31,6 +32,7 @@ export default function App() {
   else if (view === 'heston') page = <HestonPage />
   else if (view === 'bl') page = <BlackLittermanPage />
   else if (view === 'mc') page = <MonteCarloPage />
+  else if (view === 'kf') page = <KalmanFilterPage />
   else page = <AptPage />
 
   return (

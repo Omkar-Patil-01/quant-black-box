@@ -350,3 +350,96 @@ export interface AptParams {
 export function aptRet(b1: number, b2: number, withAlpha: boolean, p: AptParams): number {
   return p.r + b1 * p.lam + b2 * p.lams + p.b3 * p.lamv + (withAlpha ? p.al : 0);
 }
+
+// ═══════════════ KALMAN FILTER ═══════════════
+
+export interface KfParams {
+  n: number; m: number; Q: number; R: number; nDays: number; seed: number;
+}
+
+export interface KfTickResult {
+  step: number;
+  trueState: number[];
+  observation: number[];
+  filteredState: number[];
+  stateCovDiag: number[];
+  innovation: number[];
+  kalmanGain: number[][];
+  traceP: number;
+}
+
+function _kfIdentity(n: number): number[][] {
+  return Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)));
+}
+
+function _kfTrace(A: number[][]): number {
+  let s = 0;
+  for (let i = 0; i < A.length; i++) s += A[i][i];
+  return s;
+}
+
+export function kalmanFilter(p: KfParams): KfTickResult[] {
+  const { n, m, Q, R, nDays, seed } = p;
+  const rng = mulberry32(seed);
+
+  const F = _kfIdentity(n);
+  const H: number[][] = Array.from({ length: m }, (_, i) =>
+    Array.from({ length: n }, (_, j) => (j === i ? 1 : 0)));
+  const Qmat = _scale(_kfIdentity(n), Q);
+  const Rmat = _scale(_kfIdentity(m), R);
+
+  let xTrue = Array.from({ length: n }, (_, i) => (i === 0 ? 100 : 0));
+  let xEst = Array.from({ length: n }, () => 100);
+  let P = _scale(_kfIdentity(n), 10);
+
+  const results: KfTickResult[] = [];
+
+  for (let t = 0; t <= nDays; t++) {
+    if (t > 0) {
+      const w = Array.from({ length: n }, () => Math.sqrt(Q) * nextGauss(rng));
+      xTrue = _mul(F, xTrue.map((v) => [v])).map((r) => r[0]).map((v, i) => v + w[i]);
+
+      const v = Array.from({ length: m }, () => Math.sqrt(R) * nextGauss(rng));
+      const yTrue = _mul(H, xTrue.map((v) => [v])).map((r) => r[0]);
+      const yObsArr = yTrue.map((v, i) => v + v[i]);
+
+      const xPred = _mul(F, xEst.map((v) => [v])).map((r) => r[0]);
+      const PPred = _add(_mul(_mul(F, P), _trans(F)), Qmat);
+
+      const predObs = _mul(H, xPred.map((s) => [s])).map((r) => r[0]);
+      const innovation = yObsArr.map((v, i) => v - predObs[i]);
+
+      const S = _add(_mul(_mul(H, PPred), _trans(H)), Rmat);
+      const Sinv = _inv(S);
+      let K: number[][];
+      if (Sinv) {
+        K = _mul(_mul(PPred, _trans(H)), Sinv);
+      } else {
+        K = Array.from({ length: n }, () => Array(m).fill(0));
+      }
+
+      const innovVec = innovation.map((v) => [v]);
+      const Kinnov = _mul(K, innovVec).map((r) => r[0]);
+      xEst = xPred.map((v, i) => v + Kinnov[i]);
+
+      const KH = _mul(K, H);
+      const IminusKH = _add(_kfIdentity(n), _scale(KH, -1));
+      P = _mul(IminusKH, PPred);
+    }
+
+    const obs = _mul(H, xTrue.map((v) => [v])).map((r) => r[0]);
+
+    results.push({
+      step: t,
+      trueState: [...xTrue],
+      observation: t === 0 ? Array(m).fill(0) : obs,
+      filteredState: [...xEst],
+      stateCovDiag: Array.from({ length: n }, (_, i) => Math.sqrt(Math.max(0, P[i][i])) * 2),
+      innovation: t === 0 ? Array(m).fill(0) : obs.map((v, i) => v - (_mul(H, xEst.map((s) => [s]))[i]?.[0] ?? 0)),
+      kalmanGain: K.map((r) => [...r]),
+      traceP: _kfTrace(P),
+    });
+  }
+
+  return results;
+}

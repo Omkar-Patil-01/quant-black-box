@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import database
-from .routers import apt, bl, bs, heston, mc, market, workspace
+from .routers import apt, bl, bs, heston, kf, mc, market, workspace
 
 load_dotenv()
 
@@ -38,6 +38,7 @@ app.include_router(heston.router, prefix="/api/heston", tags=["heston"])
 app.include_router(bl.router, prefix="/api/bl", tags=["black-litterman"])
 app.include_router(mc.router, prefix="/api/mc", tags=["monte-carlo"])
 app.include_router(apt.router, prefix="/api/apt", tags=["apt"])
+app.include_router(kf.router, prefix="/api/kf", tags=["kalman-filter"])
 app.include_router(workspace.router, prefix="/api/workspace", tags=["workspace"])
 app.include_router(market.router, prefix="/api/market", tags=["market-data"])
 
@@ -71,6 +72,12 @@ MODELS = [
         "name": "Arbitrage Pricing Theory",
         "method": "Linear multi-factor model",
         "endpoint": "/api/apt",
+    },
+    {
+        "id": "kf",
+        "name": "Kalman Filter",
+        "method": "Recursive state-space estimation",
+        "endpoint": "/api/kf",
     },
 ]
 

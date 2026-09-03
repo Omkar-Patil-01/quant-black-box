@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type View = 'index' | 'bs' | 'heston' | 'bl' | 'mc' | 'apt'
+export type View = 'index' | 'bs' | 'heston' | 'bl' | 'mc' | 'apt' | 'kf'
 export type MobilePanel = 'canvas' | 'params' | 'metrics'
 
 interface AppState {

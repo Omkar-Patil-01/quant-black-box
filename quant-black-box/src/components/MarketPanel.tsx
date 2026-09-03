@@ -11,6 +11,7 @@ const SYMBOL_PRESETS: Record<View, string[]> = {
   bl: ['SPY', 'QQQ', 'GLD', 'BTC/USD'],
   mc: ['SPY', 'QQQ', 'AAPL', 'BTC/USD'],
   apt: ['SPY', 'QQQ', 'IWM', 'GLD'],
+  kf: ['SPY', 'QQQ', 'AAPL', 'BTC/USD'],
 }
 
 interface MarketPanelProps {

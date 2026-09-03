@@ -1,8 +1,8 @@
 export const SCHEMA_VERSION = '1.0.0'
 
-export type ModelId = 'bs' | 'heston' | 'bl' | 'mc' | 'apt'
+export type ModelId = 'bs' | 'heston' | 'bl' | 'mc' | 'apt' | 'kf'
 
-const VALID_MODEL_IDS: ModelId[] = ['bs', 'heston', 'bl', 'mc', 'apt']
+const VALID_MODEL_IDS: ModelId[] = ['bs', 'heston', 'bl', 'mc', 'apt', 'kf']
 
 export function isModelId(value: string): value is ModelId {
   return (VALID_MODEL_IDS as string[]).includes(value)

@@ -12,6 +12,7 @@ const MODEL_LABELS: Record<ModelId, string> = {
   bl: 'BL',
   mc: 'MC',
   apt: 'APT',
+  kf: 'KF',
 }
 
 export default function ScenarioPanel() {
