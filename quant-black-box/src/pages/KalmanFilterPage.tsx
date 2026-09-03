@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import DisplayControls from '../components/DisplayControls'
@@ -7,6 +7,7 @@ import RightSidebar from '../components/RightSidebar'
 import { KF_FORMULAS } from '../lib/formulas'
 import { kalmanFilter } from '../lib/math'
 import type { KfParams, KfTickResult } from '../lib/math'
+import { fetchKf } from '../lib/kfApi'
 import { useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
@@ -245,15 +246,27 @@ export default function KalmanFilterPage() {
     seed: s.seed,
   }
 
-  const fullHistory = useMemo(() => kalmanFilter(kfParams), [s.n, s.m, s.Q, s.R, s.nDays, s.seed])
-
-  const [tick, setTick] = useState(fullHistory.length)
+  const [fullHistory, setFullHistory] = useState<KfTickResult[]>([])
+  const [tick, setTick] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
 
+  const loadFromBackend = useCallback(async () => {
+    try {
+      const ticks = await fetchKf(kfParams)
+      setFullHistory(ticks)
+      setTick(ticks.length)
+      setIsPlaying(false)
+    } catch {
+      const ticks = kalmanFilter(kfParams)
+      setFullHistory(ticks)
+      setTick(ticks.length)
+      setIsPlaying(false)
+    }
+  }, [s.n, s.m, s.Q, s.R, s.nDays, s.seed])
+
   useEffect(() => {
-    setTick(fullHistory.length)
-    setIsPlaying(false)
-  }, [fullHistory])
+    loadFromBackend()
+  }, [loadFromBackend])
 
   useEffect(() => {
     if (!isPlaying || tick >= fullHistory.length) {
