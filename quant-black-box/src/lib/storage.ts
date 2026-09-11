@@ -1,7 +1,7 @@
 import type { WorkspaceState } from '../types/workspace'
 import { SCHEMA_VERSION } from '../types/workspace'
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api') + '/workspace'
+const API_BASE = (import.meta.env.VITE_API_URL || '/api') + '/workspace'
 
 export interface StorageProvider {
   load(): Promise<WorkspaceState | null>
