@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { blSolve } from '../engine.js';
+import { blSolve, BL_NAMES } from '../engine.js';
 
 const router = Router();
 
@@ -19,8 +19,8 @@ router.post('/', (req, res) => {
     return;
   }
   const { tau, lam, del, q1, q2 } = parsed.data;
-  const r = blSolve(tau, lam, del, q1, q2);
-  res.json({ names: r.names, Pi: r.Pi, ER: r.ER, SigP: r.SigP, wStar: r.wStar, res1: r.res1, res2: r.res2 });
+  const r = blSolve(tau, { lam, del, q1, q2 });
+  res.json({ names: BL_NAMES, Pi: r.Pi, ER: r.ER, SigP: r.SigP, wStar: r.wStar, res1: r.res1, res2: r.res2 });
 });
 
 export default router;

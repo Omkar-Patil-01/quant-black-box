@@ -9,7 +9,7 @@ import FormulaModal from '../components/FormulaModal'
 import LiveMarketIngestion from '../components/LiveMarketIngestion'
 import RightSidebar from '../components/RightSidebar'
 import { MC_FORMULAS } from '../lib/formulas'
-import { MC_STEPS, metricVal, simulateMc } from '../lib/math'
+import { MC_STEPS, mcStats, metricVal, simulateMc } from '../lib/math'
 import { money, pct } from '../lib/format'
 import { useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
@@ -62,25 +62,7 @@ export default function MonteCarloPage() {
     }
   }, [sim, s.metric])
 
-  const stats = useMemo(() => {
-    const t = sim.term
-    const n = t.length
-    const mean = t.reduce((a, b) => a + b, 0) / n
-    const sorted = t.slice().sort((a, b) => a - b)
-    const med = (sorted[Math.floor((n - 1) / 2)] + sorted[Math.ceil((n - 1) / 2)]) / 2
-    const sd = Math.sqrt(t.reduce((a, b) => a + (b - mean) * (b - mean), 0) / n)
-    const var5 = sorted[Math.floor(n * 0.05)]
-    const max = sorted[n - 1]
-    const min = sorted[0]
-    const losses = t.filter((v) => v < sim.S0).length / n
-    const logr = t.map((v) => Math.log(v / sim.S0))
-    const mlr = logr.reduce((a, b) => a + b, 0) / logr.length
-    let util: number
-    if (Math.abs(gam - 1) < 0.05) util = t.map(Math.log).reduce((a, b) => a + b, 0) / n
-    else util = t.map((v) => (Math.pow(v, 1 - gam) - 1) / (1 - gam)).reduce((a, b) => a + b, 0) / n
-    const half = (1.96 * sd) / Math.sqrt(n)
-    return { mean, med, sd, var5, max, min, losses, mlr, util, half }
-  }, [sim, gam])
+  const stats = useMemo(() => mcStats(sim, gam), [sim, gam])
 
   const hist = useMemo(() => {
     const bins = mobile ? 16 : 28
@@ -113,7 +95,7 @@ export default function MonteCarloPage() {
   const metricsContent = (
     <StatList mobile={mobile}>
       <Stat k="Mean Terminal" v={money(stats.mean)} tone="price" mobile={mobile} />
-      <Stat k="Median Terminal" v={money(stats.med)} tone="price" mobile={mobile} />
+      <Stat k="Median Terminal" v={money(stats.median)} tone="price" mobile={mobile} />
       <Stat k="St Dev" v={money(stats.sd)} mobile={mobile} />
       <Stat k="5% VaR" v={money(stats.var5)} tone="neg" mobile={mobile} />
       <Stat k="Max Terminal" v={money(stats.max)} tone="price" mobile={mobile} />
@@ -121,7 +103,7 @@ export default function MonteCarloPage() {
       <Stat k="P(loss)" v={(stats.losses * 100).toFixed(1) + '%'} mobile={mobile} />
       <Stat k="Mean Log Ret" v={pct(stats.mlr)} tone="price" mobile={mobile} />
       <Stat k="E[U(W)] CRRA" v={stats.util.toFixed(3)} mobile={mobile} />
-      <Stat k="95% CI" v={'±$' + stats.half.toFixed(2)} mobile={mobile} />
+      <Stat k="95% CI" v={'±$' + stats.ci95.toFixed(2)} mobile={mobile} />
     </StatList>
   )
 

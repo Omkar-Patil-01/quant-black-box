@@ -377,6 +377,40 @@ export function simulateMc(p: McParams): McSimulation {
 export const metricVal = (price: number, S0: number, mode: 'price' | 'ret'): number =>
   mode === 'ret' ? price / S0 - 1 : price
 
+export interface McStats {
+  mean: number
+  median: number
+  sd: number
+  var5: number
+  max: number
+  min: number
+  losses: number
+  mlr: number
+  util: number
+  ci95: number
+}
+
+export function mcStats(sim: McSimulation, gam: number): McStats {
+  const t = sim.term
+  const n = t.length
+  const mean = t.reduce((a, b) => a + b, 0) / n
+  const s = [...t].sort((a, b) => a - b)
+  const median = (s[Math.floor((n - 1) / 2)] + s[Math.floor(n / 2)]) / 2
+  const sd = Math.sqrt(t.reduce((a, v) => a + (v - mean) ** 2, 0) / n)
+  const var5 = s[Math.min(Math.floor(n * 0.05), n - 1)]
+  const losses = t.filter((v) => v < sim.S0).length / n
+  const logr = t.map((v) => Math.log(v / sim.S0))
+  const mlr = logr.reduce((a, b) => a + b, 0) / n
+  let util: number
+  if (Math.abs(gam - 1) < 0.05) {
+    util = t.reduce((a, v) => a + Math.log(v), 0) / n
+  } else {
+    util = t.reduce((a, v) => a + (Math.pow(v, 1 - gam) - 1) / (1 - gam), 0) / n
+  }
+  const ci95 = (1.96 * sd) / Math.sqrt(n)
+  return { mean, median, sd, var5, max: s[n - 1], min: s[0], losses, mlr, util, ci95 }
+}
+
 /* ═════════ APT ENGINE ═════════ */
 
 export interface AptParams {

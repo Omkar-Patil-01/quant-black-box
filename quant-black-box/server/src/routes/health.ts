@@ -6,6 +6,7 @@ const MODELS = [
   { id: 'bl', name: 'Black-Litterman Model', method: 'Matrix Bayesian update', endpoint: '/api/bl' },
   { id: 'mc', name: 'Monte Carlo Portfolio Simulation', method: 'Seeded GBM (Mulberry32), 60 steps', endpoint: '/api/mc' },
   { id: 'apt', name: 'Arbitrage Pricing Theory', method: 'Linear multi-factor model', endpoint: '/api/apt' },
+  { id: 'kf', name: 'Kalman Filter', method: 'Recursive state-space estimation', endpoint: '/api/kf' },
 ];
 
 const router = Router();

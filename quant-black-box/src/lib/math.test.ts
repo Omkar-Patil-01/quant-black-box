@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aptRet, blSolve, bs, hestonPrice, kalmanFilter, normCdf, simulateMc } from './math'
+import { aptRet, blSolve, bs, hestonPrice, kalmanFilter, mcStats, normCdf, simulateMc } from './math'
 
 describe('normCdf', () => {
   it('matches known values', () => {
@@ -152,5 +152,26 @@ describe('Kalman Filter', () => {
     const a = kalmanFilter({ n: 2, m: 1, Q: 0.01, R: 0.1, nDays: 10, seed: 42 })
     const b = kalmanFilter({ n: 2, m: 1, Q: 0.01, R: 0.1, nDays: 10, seed: 42 })
     expect(a).toEqual(b)
+  })
+})
+
+describe('mcStats', () => {
+  const sim = simulateMc({ S0: 100, mu: 0.08, sig: 0.2, T: 1, npaths: 5000, gam: 2 })
+  const st = mcStats(sim, 2)
+
+  it('matches the seeded reference run', () => {
+    expect(st.mean).toBeCloseTo(107.8393, 3)
+    expect(st.median).toBeCloseTo(105.7507, 3)
+    expect(st.ci95).toBeCloseTo(0.5947, 3)
+    expect(st.util).toBeCloseTo(0.9904, 3)
+  })
+
+  it('is internally consistent', () => {
+    expect(st.min).toBeLessThanOrEqual(st.median)
+    expect(st.median).toBeLessThanOrEqual(st.max)
+    expect(st.var5).toBeLessThan(st.mean)
+    expect(st.losses).toBeGreaterThanOrEqual(0)
+    expect(st.losses).toBeLessThanOrEqual(1)
+    expect(st.ci95).toBeCloseTo((1.96 * st.sd) / Math.sqrt(sim.N), 12)
   })
 })
