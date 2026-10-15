@@ -285,11 +285,24 @@ export function Scale({ label }: { label: string }) {
   )
 }
 
-export function IconBtn({ icon, children, onClick }: { icon: ReactNode; children: ReactNode; onClick: () => void }) {
+export function IconBtn({
+  icon,
+  children,
+  onClick,
+  title,
+}: {
+  icon: ReactNode
+  children?: ReactNode
+  onClick: () => void
+  title?: string
+}) {
+  const label = title ?? (typeof children === 'string' ? children : undefined)
   return (
     <button
       type="button"
       onClick={onClick}
+      title={label}
+      aria-label={label}
       className="flex cursor-pointer items-center gap-[7px] rounded border border-border bg-transparent px-3 py-1.5 font-sans text-[10px] font-medium text-white transition-colors hover:border-[#666666]"
     >
       {icon}
@@ -302,6 +315,113 @@ export function Hint({ text }: { text: string }) {
   return (
     <div className="pointer-events-none absolute bottom-3.5 left-1/2 z-[5] -translate-x-1/2 whitespace-nowrap font-mono text-[9px] tracking-[0.04em] text-mute">
       {text}
+    </div>
+  )
+}
+
+/** Label-left numeric input, matching Slider's value slot. Keeps its own draft so the
+    field can be cleared and retyped without React snapping it back mid-edit. */
+export function Field({
+  label,
+  value,
+  onChange,
+  min = -Infinity,
+  max = Infinity,
+}: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+}) {
+  const [draft, setDraft] = useState(String(value))
+  useEffect(() => {
+    setDraft(String(value))
+  }, [value])
+
+  const update = (raw: string) => {
+    setDraft(raw)
+    const n = Number(raw)
+    if (raw.trim() !== '' && Number.isFinite(n)) onChange(Math.min(max, Math.max(min, n)))
+  }
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="text-[9px] font-medium tracking-[0.12em] text-label">{label}</label>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={draft}
+          onChange={(e) => update(e.target.value)}
+          onBlur={() => setDraft(String(value))}
+          className="w-[104px] rounded border border-fill bg-[#0a0a0a] px-2 py-1 text-right font-mono text-[11px] font-medium text-white focus:border-[#555] focus:outline-none"
+        />
+      </div>
+    </div>
+  )
+}
+
+export function Select({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: SegOption[]
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="mb-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="text-[9px] font-medium tracking-[0.12em] text-label">{label}</label>
+        <div className="relative w-[128px]">
+          <select
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full cursor-pointer appearance-none rounded border border-fill bg-[#0a0a0a] py-1 pl-2 pr-6 font-mono text-[11px] font-medium text-white focus:border-[#555] focus:outline-none"
+          >
+            {options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={11} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[#666666]" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Stat row with a probability bar — for P(success) / P(target). */
+export function BarStat({
+  k,
+  value,
+  ratio,
+  tone = 'green',
+  mobile,
+}: {
+  k: string
+  value: string
+  ratio: number
+  tone?: 'green' | 'amber'
+  mobile?: boolean
+}) {
+  const w = Math.max(0, Math.min(1, ratio)) * 100
+  const fg = tone === 'green' ? 'bg-green' : 'bg-accent-mc'
+  const txt = tone === 'green' ? 'text-green' : 'text-accent-mc'
+  return (
+    <div className={`py-[7px] ${mobile ? '' : 'border-b border-[#131313] last:border-b-0'}`}>
+      <div className="flex items-center justify-between">
+        <span className="text-[8.5px] font-medium uppercase tracking-[0.14em] text-label">{k}</span>
+        <span className={`font-mono text-[11px] font-medium ${txt}`}>{value}</span>
+      </div>
+      <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-track">
+        <div className={`h-full rounded-full ${fg}`} style={{ width: `${w}%` }} />
+      </div>
     </div>
   )
 }

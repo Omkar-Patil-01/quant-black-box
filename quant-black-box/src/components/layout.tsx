@@ -74,6 +74,9 @@ export function Header({
   title,
   badge,
   badgeTone = 'green',
+  badge2,
+  badge2Tone = 'green',
+  actions,
   onInfo,
   onBack,
   onReset,
@@ -81,6 +84,11 @@ export function Header({
   title: string
   badge: string
   badgeTone?: 'green' | 'red'
+  /** optional second status chip, e.g. success probability beside Sharpe */
+  badge2?: string
+  badge2Tone?: 'green' | 'red'
+  /** optional toolbar rendered ahead of Save/Back/Reset (desktop only) */
+  actions?: ReactNode
   onInfo: () => void
   onBack: () => void
   onReset: () => void
@@ -169,6 +177,15 @@ export function Header({
         >
           {badge}
         </span>
+        {badge2 && (
+          <span
+            className={`rounded px-[7px] py-0.5 font-mono text-[9px] font-semibold tracking-[0.14em] text-black ${
+              badge2Tone === 'green' ? 'bg-green' : 'bg-red'
+            }`}
+          >
+            {badge2}
+          </span>
+        )}
         {activeScenarioId && scenarios[activeScenarioId] && (
           <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[8px] text-label">
             {scenarios[activeScenarioId].name}
@@ -176,6 +193,7 @@ export function Header({
         )}
       </div>
       <div className="flex gap-2">
+        {actions}
         {showSaveInput ? (
           <div className="flex items-center gap-1.5">
             <input

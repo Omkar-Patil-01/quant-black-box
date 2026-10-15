@@ -174,4 +174,41 @@ describe('mcStats', () => {
     expect(st.losses).toBeLessThanOrEqual(1)
     expect(st.ci95).toBeCloseTo((1.96 * st.sd) / Math.sqrt(sim.N), 12)
   })
+
+  it('reports the tail percentiles, shape and drawdown consistently', () => {
+    expect(st.p95).toBeGreaterThanOrEqual(st.median)
+    expect(st.p95).toBeLessThanOrEqual(st.max)
+    // terminal wealth is lognormal, so it must skew right
+    expect(st.skew).toBeGreaterThan(0)
+    expect(st.kurt).toBeGreaterThan(-3)
+    // drawdowns are measured from a running peak, so both are non-positive,
+    // and the95% drawdown-at-Risk sits between the worst and zero
+    expect(st.maxDD).toBeLessThanOrEqual(0)
+    expect(st.dd95).toBeLessThanOrEqual(0)
+    expect(st.maxDD).toBeLessThanOrEqual(st.dd95)
+    expect(st.maxDD).toBeCloseTo(Math.min(...sim.dd), 12)
+  })
+})
+
+describe('simulateMc paths', () => {
+  const sim = simulateMc({ S0: 100, mu: 0.08, sig: 0.2, T: 1, npaths: 300, gam: 3 })
+
+  it('keeps a path id behind every sorted path', () => {
+    expect(sim.order).toHaveLength(sim.N)
+    expect([...sim.order].sort((a, b) => a - b)).toEqual(sim.order.map((_, i) => i))
+    for (let i = 1; i < sim.term.length; i++) {
+      expect(sim.term[i]).toBeGreaterThanOrEqual(sim.term[i - 1])
+    }
+  })
+
+  it('measures a max drawdown for every path', () => {
+    expect(sim.dd).toHaveLength(sim.N)
+    for (const d of sim.dd) expect(d).toBeLessThanOrEqual(0)
+  })
+
+  it('reproduces the default run and re-samples on a new seed', () => {
+    const base = { S0: 100, mu: 0.08, sig: 0.2, T: 1, npaths: 200, gam: 3 } as const
+    expect(simulateMc({ ...base }).term).toEqual(simulateMc({ ...base }).term)
+    expect(simulateMc({ ...base, seed: 7 }).term).not.toEqual(simulateMc({ ...base }).term)
+  })
 })

@@ -319,6 +319,8 @@ export interface McParams {
   T: number
   npaths: number
   gam: number
+  /** re-sample seed; omitted = the published deterministic reference run */
+  seed?: number
 }
 
 export interface McSimulation {
@@ -327,9 +329,15 @@ export interface McSimulation {
   N: number
   sorted: number[][]
   term: number[]
+  /** original path index behind each entry of `sorted`, so results keep a path id */
+  order: number[]
+  /** per-path max drawdown (negative), aligned with `sorted`/`term` */
+  dd: number[]
 }
 
 export const MC_STEPS = 60
+
+export const MC_SEED = 20240711
 
 export function mulberry32(a: number): () => number {
   return function () {
@@ -355,14 +363,21 @@ export function simulateMc(p: McParams): McSimulation {
   const drift = (mu - (sig * sig) / 2) * dt
   const vol = sig * Math.sqrt(dt)
   const paths: number[][] = Array.from({ length: npaths }, () => new Array<number>(MC_STEPS + 1))
-  const rng = mulberry32(20240711)
+  const ddAll = new Array<number>(npaths).fill(0)
+  const rng = mulberry32(p.seed ?? MC_SEED)
   for (let k = 0; k < npaths; k++) {
     let S = S0
+    let peak = S0
+    let mdd = 0
     paths[k][0] = S
     for (let t = 1; t <= MC_STEPS; t++) {
       S *= Math.exp(drift + vol * nextGauss(rng))
       paths[k][t] = S
+      if (S > peak) peak = S
+      const draw = S / peak - 1
+      if (draw < mdd) mdd = draw
     }
+    ddAll[k] = mdd
   }
   const term = paths.map((pth) => pth[MC_STEPS])
   const order = term
@@ -371,23 +386,34 @@ export function simulateMc(p: McParams): McSimulation {
     .map((x) => x[1])
   const sorted = order.map((i) => paths[i])
   const sortedTerm = order.map((i) => paths[i][MC_STEPS])
-  return { S0, T, N: npaths, sorted, term: sortedTerm }
+  const dd = order.map((i) => ddAll[i])
+  return { S0, T, N: npaths, sorted, term: sortedTerm, order, dd }
 }
 
-export const metricVal = (price: number, S0: number, mode: 'price' | 'ret'): number =>
-  mode === 'ret' ? price / S0 - 1 : price
+/** Price → view value. `pl` scales the return by `investment` to quote P&L in currency. */
+export const metricVal = (price: number, S0: number, mode: 'price' | 'ret' | 'pl', investment = 1): number => {
+  if (mode === 'price') return price
+  const ret = price / S0 - 1
+  return mode === 'ret' ? ret : ret * investment
+}
 
 export interface McStats {
   mean: number
   median: number
   sd: number
   var5: number
+  p95: number
   max: number
   min: number
   losses: number
   mlr: number
   util: number
   ci95: number
+  skew: number
+  kurt: number
+  /** drawdown-at-Risk at 95% confidence (Steiner 2011) — negative, like VaR */
+  dd95: number
+  maxDD: number
 }
 
 export function mcStats(sim: McSimulation, gam: number): McStats {
@@ -398,6 +424,13 @@ export function mcStats(sim: McSimulation, gam: number): McStats {
   const median = (s[Math.floor((n - 1) / 2)] + s[Math.floor(n / 2)]) / 2
   const sd = Math.sqrt(t.reduce((a, v) => a + (v - mean) ** 2, 0) / n)
   const var5 = s[Math.min(Math.floor(n * 0.05), n - 1)]
+  const p95 = s[Math.min(Math.floor(n * 0.95), n - 1)]
+  // population moments of terminal wealth — MC yields the whole distribution, not a sample
+  const skew = sd > 0 ? t.reduce((a, v) => a + Math.pow((v - mean) / sd, 3), 0) / n : 0
+  const kurt = sd > 0 ? t.reduce((a, v) => a + Math.pow((v - mean) / sd, 4), 0) / n - 3 : 0
+  const d = [...sim.dd].sort((a, b) => a - b)
+  const dd95 = d[Math.min(Math.floor(n * 0.05), n - 1)]
+  const maxDD = d[0]
   const losses = t.filter((v) => v < sim.S0).length / n
   const logr = t.map((v) => Math.log(v / sim.S0))
   const mlr = logr.reduce((a, b) => a + b, 0) / n
@@ -408,7 +441,23 @@ export function mcStats(sim: McSimulation, gam: number): McStats {
     util = t.reduce((a, v) => a + (Math.pow(v, 1 - gam) - 1) / (1 - gam), 0) / n
   }
   const ci95 = (1.96 * sd) / Math.sqrt(n)
-  return { mean, median, sd, var5, max: s[n - 1], min: s[0], losses, mlr, util, ci95 }
+  return {
+    mean,
+    median,
+    sd,
+    var5,
+    p95,
+    max: s[n - 1],
+    min: s[0],
+    losses,
+    mlr,
+    util,
+    ci95,
+    skew,
+    kurt,
+    dd95,
+    maxDD,
+  }
 }
 
 /* ═════════ APT ENGINE ═════════ */

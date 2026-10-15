@@ -106,10 +106,18 @@ export const useBl = create<BlState>((set) => ({
   set: (p) => set(p),
 }))
 
-export type McMetric = 'price' | 'ret'
+export type McMetric = 'price' | 'ret' | 'pl'
 
 export interface McState extends DisplayState {
   metric: McMetric
+  /** 2D path chart (default) or the legacy 3D surface */
+  view: 'paths' | 'surface'
+  /** capital behind the P&L ($) view — a display scaler, never simulated */
+  investment: number
+  /** target return in %, drives the +20% line and P(target) */
+  target: number
+  /** re-run seed; bumping it re-samples the paths */
+  seed: number
   S0: number
   mu: number
   sig: number
@@ -121,18 +129,22 @@ export interface McState extends DisplayState {
 }
 
 export const useMc = create<McState>((set) => ({
-  metric: 'price',
+  metric: 'pl',
+  view: 'paths',
+  investment: 10000,
+  target: 20,
+  seed: 20240711,
   scheme: 'pl',
   wire: true,
   grid: true,
   axes: true,
   rot: false,
   S0: 100,
-  mu: 10,
-  sig: 25,
-  T: 30,
-  r: 5,
-  npaths: 400,
+  mu: 8,
+  sig: 20,
+  T: 10,
+  r: 2,
+  npaths: 100,
   gam: 30,
   set: (p) => set(p),
 }))

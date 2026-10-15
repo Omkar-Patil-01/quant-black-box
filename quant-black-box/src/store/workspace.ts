@@ -346,7 +346,7 @@ export async function extractModelParams(modelId: ModelId): Promise<Record<strin
     },
     mc: () => {
       const s = m.useMc.getState()
-      return { metric: s.metric, S0: s.S0, mu: s.mu, sig: s.sig, T: s.T, r: s.r, npaths: s.npaths, gam: s.gam, scheme: s.scheme, wire: s.wire, grid: s.grid, axes: s.axes, rot: s.rot }
+      return { metric: s.metric, view: s.view, investment: s.investment, target: s.target, seed: s.seed, S0: s.S0, mu: s.mu, sig: s.sig, T: s.T, r: s.r, npaths: s.npaths, gam: s.gam, scheme: s.scheme, wire: s.wire, grid: s.grid, axes: s.axes, rot: s.rot }
     },
     apt: () => {
       const s = m.useApt.getState()
