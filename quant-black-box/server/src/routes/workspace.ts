@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db.js';
+import { sql } from '../db.js';
 
 const router = Router();
 const MAX_RECENT_RUNS = 50;
@@ -13,7 +13,7 @@ function _now(): string {
 
 async function loadWorkspace() {
   const scenarios: Record<string, unknown> = {};
-  for (const r of (await db.execute('SELECT * FROM scenarios')).rows) {
+  for (const r of await sql`SELECT * FROM scenarios`) {
     scenarios[r.id as string] = {
       id: r.id, name: r.name, modelId: r.model_id, description: r.description,
       createdAt: r.created_at, updatedAt: r.updated_at,
@@ -21,28 +21,28 @@ async function loadWorkspace() {
     };
   }
   const presets: Record<string, unknown> = {};
-  for (const r of (await db.execute('SELECT * FROM presets')).rows) {
+  for (const r of await sql`SELECT * FROM presets`) {
     presets[r.id as string] = {
       id: r.id, name: r.name, modelId: r.model_id,
       parameters: JSON.parse(r.parameters as string), tags: JSON.parse(r.tags as string),
       createdAt: r.created_at,
     };
   }
-  const runs = (await db.execute({ sql: 'SELECT * FROM recent_runs ORDER BY timestamp DESC LIMIT ?', args: [MAX_RECENT_RUNS] })).rows.map((r) => ({
+  const runs = (await sql`SELECT * FROM recent_runs ORDER BY timestamp DESC LIMIT ${MAX_RECENT_RUNS}`).map((r) => ({
     runId: r.run_id, timestamp: r.timestamp, runtimeMs: r.runtime_ms, modelId: r.model_id,
     scenarioName: r.scenario_name, inputs: JSON.parse(r.inputs as string), outputsSummary: JSON.parse(r.outputs_summary as string),
   }));
-  const favRow = (await db.execute('SELECT model_ids FROM favorites WHERE id = 1')).rows;
-  const favIds = favRow.length ? JSON.parse(favRow[0].model_ids as string) : ['bs', 'heston', 'bl', 'mc', 'apt'];
+  const favRow = await sql`SELECT model_ids FROM favorites WHERE id = 1`;
+  const favIds = favRow.length ? JSON.parse(favRow[0]!.model_ids as string) : ['bs', 'heston', 'bl', 'mc', 'apt'];
   const deleted: Record<string, unknown> = {};
-  for (const r of (await db.execute('SELECT * FROM deleted_scenarios')).rows) {
+  for (const r of await sql`SELECT * FROM deleted_scenarios`) {
     deleted[r.id as string] = {
       id: r.id, name: r.name, modelId: r.model_id, description: r.description,
       createdAt: r.created_at, updatedAt: r.updated_at,
       parameters: JSON.parse(r.parameters as string), tags: JSON.parse(r.tags as string),
     };
   }
-  const metaRows = (await db.execute('SELECT key, value FROM workspace_meta')).rows;
+  const metaRows = await sql`SELECT key, value FROM workspace_meta`;
   const meta: Record<string, string> = {};
   for (const r of metaRows) meta[r.key as string] = r.value as string;
   return {
@@ -55,38 +55,34 @@ async function loadWorkspace() {
 }
 
 async function saveWorkspace(state: Record<string, unknown>) {
-  await db.execute('DELETE FROM scenarios');
-  await db.execute('DELETE FROM presets');
-  await db.execute('DELETE FROM recent_runs');
-  await db.execute('DELETE FROM deleted_scenarios');
-  await db.execute('DELETE FROM workspace_meta');
+  await sql`DELETE FROM scenarios`;
+  await sql`DELETE FROM presets`;
+  await sql`DELETE FROM recent_runs`;
+  await sql`DELETE FROM deleted_scenarios`;
+  await sql`DELETE FROM workspace_meta`;
   for (const [, s] of Object.entries(state.scenarios as Record<string, Record<string, unknown>> || {})) {
-    await db.execute({
-      sql: 'INSERT INTO scenarios (id, name, model_id, description, parameters, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      args: [s.id as string, s.name as string, s.modelId as string, (s.description as string) || null, JSON.stringify(s.parameters || {}), JSON.stringify(s.tags || []), s.createdAt as string, s.updatedAt as string],
-    });
+    await sql`INSERT INTO scenarios (id, name, model_id, description, parameters, tags, created_at, updated_at)
+      VALUES (${s.id as string}, ${s.name as string}, ${s.modelId as string}, ${(s.description as string) || null},
+        ${JSON.stringify(s.parameters || {})}, ${JSON.stringify(s.tags || [])}, ${s.createdAt as string}, ${s.updatedAt as string})`;
   }
   for (const [, p] of Object.entries(state.presets as Record<string, Record<string, unknown>> || {})) {
-    await db.execute({
-      sql: 'INSERT INTO presets (id, name, model_id, parameters, tags, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      args: [p.id as string, p.name as string, p.modelId as string, JSON.stringify(p.parameters || {}), JSON.stringify(p.tags || []), p.createdAt as string],
-    });
+    await sql`INSERT INTO presets (id, name, model_id, parameters, tags, created_at)
+      VALUES (${p.id as string}, ${p.name as string}, ${p.modelId as string},
+        ${JSON.stringify(p.parameters || {})}, ${JSON.stringify(p.tags || [])}, ${p.createdAt as string})`;
   }
   for (const [, s] of Object.entries(state.deletedScenarios as Record<string, Record<string, unknown>> || {})) {
-    await db.execute({
-      sql: 'INSERT INTO deleted_scenarios (id, name, model_id, description, parameters, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      args: [s.id as string, s.name as string, s.modelId as string, (s.description as string) || null, JSON.stringify(s.parameters || {}), JSON.stringify(s.tags || []), s.createdAt as string, s.updatedAt as string],
-    });
+    await sql`INSERT INTO deleted_scenarios (id, name, model_id, description, parameters, tags, created_at, updated_at)
+      VALUES (${s.id as string}, ${s.name as string}, ${s.modelId as string}, ${(s.description as string) || null},
+        ${JSON.stringify(s.parameters || {})}, ${JSON.stringify(s.tags || [])}, ${s.createdAt as string}, ${s.updatedAt as string})`;
   }
   for (const run of (state.recentRuns as Array<Record<string, unknown>> || [])) {
-    await db.execute({
-      sql: 'INSERT INTO recent_runs (run_id, timestamp, runtime_ms, model_id, scenario_name, inputs, outputs_summary) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      args: [run.runId as string, run.timestamp as string, Number(run.runtimeMs), run.modelId as string, run.scenarioName as string, JSON.stringify(run.inputs || {}), JSON.stringify(run.outputsSummary || {})],
-    });
+    await sql`INSERT INTO recent_runs (run_id, timestamp, runtime_ms, model_id, scenario_name, inputs, outputs_summary)
+      VALUES (${run.runId as string}, ${run.timestamp as string}, ${Number(run.runtimeMs)}, ${run.modelId as string},
+        ${run.scenarioName as string}, ${JSON.stringify(run.inputs || {})}, ${JSON.stringify(run.outputsSummary || {})})`;
   }
   const favIds = (state.favorites as Record<string, string[]>)?.modelIds || ['bs', 'heston', 'bl', 'mc', 'apt'];
-  await db.execute('DELETE FROM favorites');
-  await db.execute({ sql: 'INSERT INTO favorites (id, model_ids) VALUES (1, ?)', args: [JSON.stringify(favIds)] });
+  await sql`DELETE FROM favorites`;
+  await sql`INSERT INTO favorites (id, model_ids) VALUES (1, ${JSON.stringify(favIds)})`;
   const meta: Record<string, string> = {
     version: String(state.version || '1.0.0'),
     activeModelId: String(state.activeModelId || ''),
@@ -95,17 +91,19 @@ async function saveWorkspace(state: Record<string, unknown>) {
   };
   if (state.lastModelParams != null) meta.lastModelParams = JSON.stringify(state.lastModelParams);
   for (const [k, v] of Object.entries(meta)) {
-    await db.execute({ sql: 'INSERT OR REPLACE INTO workspace_meta (key, value) VALUES (?, ?)', args: [k, v] });
+    await sql`INSERT INTO workspace_meta (key, value) VALUES (${k}, ${v})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
   }
 }
 
 async function clearWorkspace() {
-  await db.execute('DELETE FROM scenarios');
-  await db.execute('DELETE FROM presets');
-  await db.execute('DELETE FROM recent_runs');
-  await db.execute('DELETE FROM deleted_scenarios');
-  await db.execute('DELETE FROM workspace_meta');
-  await db.execute({ sql: 'INSERT OR REPLACE INTO favorites (id, model_ids) VALUES (1, ?)', args: [JSON.stringify(['bs', 'heston', 'bl', 'mc', 'apt'])] });
+  await sql`DELETE FROM scenarios`;
+  await sql`DELETE FROM presets`;
+  await sql`DELETE FROM recent_runs`;
+  await sql`DELETE FROM deleted_scenarios`;
+  await sql`DELETE FROM workspace_meta`;
+  await sql`INSERT INTO favorites (id, model_ids) VALUES (1, ${JSON.stringify(['bs', 'heston', 'bl', 'mc', 'apt'])})
+    ON CONFLICT (id) DO UPDATE SET model_ids = EXCLUDED.model_ids`;
 }
 
 // ─── Routes ───────────────────────────────────────────
@@ -164,7 +162,7 @@ router.delete('/scenarios/:id', async (req, res) => {
     const state = await loadWorkspace();
     const scenarios = state.scenarios as Record<string, Record<string, unknown>>;
     if (!scenarios[req.params.id]) { res.status(404).json({ error: 'Scenario not found' }); return; }
-    const removed = scenarios[req.params.id];
+    const removed = scenarios[req.params.id]!;
     delete scenarios[req.params.id];
     (state.deletedScenarios as Record<string, unknown>)[req.params.id] = removed;
     if (state.activeScenarioId === req.params.id) state.activeScenarioId = null;
@@ -179,7 +177,7 @@ router.post('/scenarios/:id/restore', async (req, res) => {
     const state = await loadWorkspace();
     const deleted = state.deletedScenarios as Record<string, Record<string, unknown>>;
     if (!deleted[req.params.id]) { res.status(404).json({ error: 'Deleted scenario not found' }); return; }
-    const restored = deleted[req.params.id];
+    const restored = deleted[req.params.id]!;
     delete deleted[req.params.id];
     (state.scenarios as Record<string, unknown>)[req.params.id] = restored;
     state.lastUpdated = _now();

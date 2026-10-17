@@ -1,7 +1,17 @@
 import { Router } from 'express';
+import { env } from '../config.js';
 import { getQuote, getCandles, getOptionsChain, getCatalog, getSeries } from '../market.js';
 
 const router = Router();
+
+// One missing key must not take down the rest of the API.
+router.use((_req, res, next) => {
+  if (!env.LSE_API_KEY) {
+    res.status(503).json({ ok: false, error: 'Market data unavailable: LSE_API_KEY is not configured' });
+    return;
+  }
+  next();
+});
 
 router.get('/quote/:symbol', async (req, res) => {
   try {
