@@ -6,10 +6,8 @@ loadEnv();
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  CORS_ORIGIN: z.string().default('http://localhost:5173,https://quant-black-box.vercel.app'),
-  TURSO_DATABASE_URL: z.string().default('file:local.db'),
-  TURSO_AUTH_TOKEN: z.string().optional(),
-  LSE_API_KEY: z.string().min(1, 'LSE_API_KEY required'),
+  // Optional: without it only /api/market/* goes dark, never the whole API.
+  LSE_API_KEY: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

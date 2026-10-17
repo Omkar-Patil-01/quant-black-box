@@ -1,4 +1,4 @@
-import { db } from './db.js';
+import { sql } from './db.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS scenarios (
@@ -50,12 +50,9 @@ CREATE TABLE IF NOT EXISTS workspace_meta (
 
 export async function initSchema() {
   const statements = SCHEMA.split(';').map((s) => s.trim()).filter((s) => s.length > 0);
-  for (const sql of statements) {
-    await db.execute(sql);
+  for (const statement of statements) {
+    await sql(statement);
   }
-  await db.execute({
-    sql: 'INSERT OR IGNORE INTO favorites (id, model_ids) VALUES (1, ?)',
-    args: [JSON.stringify(['bs', 'heston', 'bl', 'mc', 'apt', 'kf'])],
-  });
+  await sql`INSERT INTO favorites (id, model_ids) VALUES (1, ${JSON.stringify(['bs', 'heston', 'bl', 'mc', 'apt', 'kf'])}) ON CONFLICT (id) DO NOTHING`;
   console.log('[DB] Schema initialized');
 }
