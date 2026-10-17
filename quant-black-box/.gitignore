@@ -2,5 +2,7 @@ node_modules
 dist
 *.local
 .DS_Store
+# Never commit live keys — matches .env at any depth under this directory
+.env
 
 .vercel

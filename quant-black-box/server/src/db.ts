@@ -1,6 +1,9 @@
 import { neon } from '@neondatabase/serverless';
 
-const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+// `||` not `??`: an empty env var must read as unset. neon('') would throw at
+// import time and kill the whole function — the same failure mode as a
+// required LSE_API_KEY used to cause.
+const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const run = url ? neon(url) : null;
 
 if (!run) console.warn('[DB] DATABASE_URL is not set — /api/workspace will fail');
