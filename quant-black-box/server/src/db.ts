@@ -12,9 +12,13 @@ if (!run) console.warn('[DB] DATABASE_URL is not set — /api/workspace will fai
 // instead of killing the whole serverless function at import time.
 export function sql(strings: TemplateStringsArray | string, ...params: unknown[]) {
   if (!run) throw new Error('DATABASE_URL is not set');
-  const q = run as unknown as (
-    s: TemplateStringsArray | string,
-    ...p: unknown[]
-  ) => Promise<Record<string, unknown>[]>;
-  return typeof strings === 'string' ? q(strings, params[0]) : q(strings, ...params);
+  const q = run as unknown as {
+    (s: TemplateStringsArray, ...p: unknown[]): Promise<Record<string, unknown>[]>;
+    query(text: string, p?: unknown[]): Promise<Record<string, unknown>[]>;
+  };
+  // Neon's sql() only accepts the tagged-template form; a plain
+  // sql("...") throws, so the string form has to go through .query().
+  return typeof strings === 'string'
+    ? q.query(strings, (params[0] as unknown[]) ?? [])
+    : q(strings, ...params);
 }
