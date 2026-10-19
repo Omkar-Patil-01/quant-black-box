@@ -33,7 +33,7 @@ async function loadWorkspace() {
     scenarioName: r.scenario_name, inputs: JSON.parse(r.inputs as string), outputsSummary: JSON.parse(r.outputs_summary as string),
   }));
   const favRow = await sql`SELECT model_ids FROM favorites WHERE id = 1`;
-  const favIds = favRow.length ? JSON.parse(favRow[0]!.model_ids as string) : ['bs', 'heston', 'bl', 'mc', 'apt'];
+  const favIds = favRow.length ? JSON.parse(favRow[0]!.model_ids as string) : ['bs', 'heston', 'bl', 'mc', 'apt', 'kf'];
   const deleted: Record<string, unknown> = {};
   for (const r of await sql`SELECT * FROM deleted_scenarios`) {
     deleted[r.id as string] = {
@@ -80,7 +80,7 @@ async function saveWorkspace(state: Record<string, unknown>) {
       VALUES (${run.runId as string}, ${run.timestamp as string}, ${Number(run.runtimeMs)}, ${run.modelId as string},
         ${run.scenarioName as string}, ${JSON.stringify(run.inputs || {})}, ${JSON.stringify(run.outputsSummary || {})})`;
   }
-  const favIds = (state.favorites as Record<string, string[]>)?.modelIds || ['bs', 'heston', 'bl', 'mc', 'apt'];
+  const favIds = (state.favorites as Record<string, string[]>)?.modelIds || ['bs', 'heston', 'bl', 'mc', 'apt', 'kf'];
   await sql`DELETE FROM favorites`;
   await sql`INSERT INTO favorites (id, model_ids) VALUES (1, ${JSON.stringify(favIds)})`;
   const meta: Record<string, string> = {
@@ -102,7 +102,7 @@ async function clearWorkspace() {
   await sql`DELETE FROM recent_runs`;
   await sql`DELETE FROM deleted_scenarios`;
   await sql`DELETE FROM workspace_meta`;
-  await sql`INSERT INTO favorites (id, model_ids) VALUES (1, ${JSON.stringify(['bs', 'heston', 'bl', 'mc', 'apt'])})
+  await sql`INSERT INTO favorites (id, model_ids) VALUES (1, ${JSON.stringify(['bs', 'heston', 'bl', 'mc', 'apt', 'kf'])})
     ON CONFLICT (id) DO UPDATE SET model_ids = EXCLUDED.model_ids`;
 }
 
