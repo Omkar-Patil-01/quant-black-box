@@ -59,8 +59,9 @@ export default function HestonPage() {
     const N = gridN
     const x0 = surfaceKey.K * 0.4
     const x1 = surfaceKey.K * 1.6
-    const y0 = 0.05
-    const y1 = 1.6
+    // Keep the canonical window but guarantee it contains T (the slider spans 0.01-2.00y).
+    const y0 = surfaceKey.T < 0.05 ? surfaceKey.T / 20 : 0.05
+    const y1 = Math.max(1.6, surfaceKey.T)
     const p: HestonParams = {
       r: surfaceKey.r,
       v0: (surfaceKey.v0 / 100) * (surfaceKey.v0 / 100),

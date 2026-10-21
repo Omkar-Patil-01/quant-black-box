@@ -49,8 +49,9 @@ export default function BlackScholesPage() {
     const N = gridN
     const x0 = K * 0.4
     const x1 = K * 1.6
-    const y0 = 0.05
-    const y1 = 1.6
+    // Keep the canonical window but guarantee it contains T (the slider spans 0.01-2.00y).
+    const y0 = T < 0.05 ? T / 20 : 0.05
+    const y1 = Math.max(1.6, T)
     const points: SurfacePoint[] = []
     for (let i = 0; i < N; i++) {
       const x = x0 + ((x1 - x0) * i) / (N - 1)
@@ -68,7 +69,7 @@ export default function BlackScholesPage() {
       xRange: [x0, x1] as [number, number],
       yRange: [y0, y1] as [number, number],
     }
-  }, [K, r, sig, s.metric, s.opt, gridN])
+  }, [T, K, r, sig, s.metric, s.opt, gridN])
 
   const m = useMemo(() => bs(S0, K, T, r, sig), [S0, K, T, r, sig])
   const atm = useMemo(() => bs(S0, S0, 1, r, sig), [S0, r, sig])
