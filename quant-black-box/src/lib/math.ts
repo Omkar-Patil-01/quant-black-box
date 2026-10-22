@@ -390,6 +390,125 @@ export function simulateMc(p: McParams): McSimulation {
   return { S0, T, N: npaths, sorted, term: sortedTerm, order, dd }
 }
 
+/* ═════════ HESTON PATH SIMULATION (SEEDED) ═════════ */
+
+export interface HestonSimParams {
+  S0: number
+  T: number
+  r: number
+  /** current variance (not vol) */
+  v0: number
+  kappa: number
+  /** long-run variance */
+  theta: number
+  sigv: number
+  rho: number
+  npaths: number
+  /** re-sample seed; omitted = the deterministic reference run */
+  seed?: number
+}
+
+export interface HestonSimulation {
+  S0: number
+  T: number
+  N: number
+  /** spot paths, sorted ascending by terminal — PathChart's contract */
+  price: number[][]
+  /** sqrt(v), reordered by the SAME permutation as `price` so the panes stay index-aligned */
+  vol: number[][]
+  term: number[]
+  /** original path index behind each entry of `price` */
+  order: number[]
+  /** per-path max drawdown (negative), aligned with `price` */
+  dd: number[]
+  /** terminal volatility, aligned with `price` */
+  volTerm: number[]
+}
+
+export const HESTON_STEPS = MC_STEPS
+
+export const HESTON_SIM_SEED = 20240711
+
+export function simulateHeston(p: HestonSimParams): HestonSimulation {
+  const { S0, T, r, v0, kappa, theta, sigv, rho, npaths } = p
+  const dt = T / HESTON_STEPS
+  const sqrtDt = Math.sqrt(dt)
+  const ortho = Math.sqrt(Math.max(0, 1 - rho * rho))
+  const rng = mulberry32(p.seed ?? HESTON_SIM_SEED)
+  const price: number[][] = Array.from({ length: npaths }, () => new Array<number>(HESTON_STEPS + 1))
+  const vol: number[][] = Array.from({ length: npaths }, () => new Array<number>(HESTON_STEPS + 1))
+  const termV = new Array<number>(npaths).fill(0)
+  const ddAll = new Array<number>(npaths).fill(0)
+  for (let k = 0; k < npaths; k++) {
+    let S = S0
+    let v = v0
+    let peak = S0
+    let mdd = 0
+    price[k][0] = S
+    vol[k][0] = Math.sqrt(Math.max(0, v))
+    for (let t = 1; t <= HESTON_STEPS; t++) {
+      const z2 = nextGauss(rng)
+      const z1 = rho * z2 + ortho * nextGauss(rng)
+      // full truncation: feed max(v,0) into BOTH the drift and the diffusion, so a
+      // negative variance can never reach sqrt() and poison the whole path.
+      const vPos = Math.max(0, v)
+      const sv = Math.sqrt(vPos)
+      v += kappa * (theta - vPos) * dt + sigv * sv * sqrtDt * z2
+      S *= Math.exp((r - 0.5 * vPos) * dt + sv * sqrtDt * z1)
+      price[k][t] = S
+      vol[k][t] = Math.sqrt(Math.max(0, v))
+      if (S > peak) peak = S
+      const draw = S / peak - 1
+      if (draw < mdd) mdd = draw
+    }
+    termV[k] = price[k][HESTON_STEPS]
+    ddAll[k] = mdd
+  }
+  const order = termV
+    .map((val, i) => [val, i] as [number, number])
+    .sort((a, b) => a[0] - b[0])
+    .map((x) => x[1])
+  return {
+    S0,
+    T,
+    N: npaths,
+    price: order.map((i) => price[i]),
+    vol: order.map((i) => vol[i]),
+    term: order.map((i) => termV[i]),
+    order,
+    dd: order.map((i) => ddAll[i]),
+    volTerm: order.map((i) => vol[i][HESTON_STEPS]),
+  }
+}
+
+export interface HestonSimStats {
+  mean: number
+  median: number
+  var5: number
+  p95: number
+  losses: number
+  ci95: number
+  eVol: number
+  maxDD: number
+}
+
+/** Terminal stats over a Heston run — the 2D pane's second metrics block.
+    Conventions follow `mcStats`: population sd, losses = fraction below S0, ci95 = half-width. */
+export function hestonSimStats(sim: HestonSimulation): HestonSimStats {
+  const t = sim.term
+  const n = t.length
+  const mean = t.reduce((a, b) => a + b, 0) / n
+  const s = [...t].sort((a, b) => a - b)
+  const median = (s[Math.floor((n - 1) / 2)] + s[Math.floor(n / 2)]) / 2
+  const sd = Math.sqrt(t.reduce((a, v) => a + (v - mean) ** 2, 0) / n)
+  const var5 = s[Math.min(Math.floor(n * 0.05), n - 1)]
+  const p95 = s[Math.min(Math.floor(n * 0.95), n - 1)]
+  const losses = t.filter((v) => v < sim.S0).length / n
+  const eVol = sim.volTerm.reduce((a, b) => a + b, 0) / n
+  const maxDD = sim.dd.reduce((a, b) => Math.min(a, b), 0)
+  return { mean, median, var5, p95, losses, ci95: 1.96 * sd / Math.sqrt(n), eVol, maxDD }
+}
+
 /** Price → view value. `pl` scales the return by `investment` to quote P&L in currency. */
 export const metricVal = (price: number, S0: number, mode: 'price' | 'ret' | 'pl', investment = 1): number => {
   if (mode === 'price') return price

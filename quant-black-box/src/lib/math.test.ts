@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aptRet, blSolve, bs, hestonPrice, kalmanFilter, mcStats, normCdf, simulateMc } from './math'
-
+import { aptRet, blSolve, bs, hestonPrice, hestonSimStats, kalmanFilter, mcStats, normCdf, simulateHeston, simulateMc, HESTON_STEPS } from './math'
 describe('normCdf', () => {
   it('matches known values', () => {
     expect(normCdf(0)).toBeCloseTo(0.5, 6)
@@ -210,5 +209,58 @@ describe('simulateMc paths', () => {
     const base = { S0: 100, mu: 0.08, sig: 0.2, T: 1, npaths: 200, gam: 3 } as const
     expect(simulateMc({ ...base }).term).toEqual(simulateMc({ ...base }).term)
     expect(simulateMc({ ...base, seed: 7 }).term).not.toEqual(simulateMc({ ...base }).term)
+  })
+})
+
+describe('simulateHeston paths', () => {
+  const base = { S0: 100, T: 1, r: 0.05, v0: 0.04, kappa: 2, theta: 0.04, sigv: 0.3, rho: -0.5, npaths: 3000 }
+
+  it('returns finite, index-aligned price/vol pairs sorted by terminal price', () => {
+    const sim = simulateHeston(base)
+    expect(sim.price).toHaveLength(sim.N)
+    expect(sim.vol).toHaveLength(sim.N)
+    expect(sim.order).toHaveLength(sim.N)
+    expect([...sim.order].sort((a, b) => a - b)).toEqual(sim.order.map((_, i) => i))
+    for (let i = 1; i < sim.term.length; i++) {
+      expect(sim.term[i]).toBeGreaterThanOrEqual(sim.term[i - 1])
+    }
+    expect(sim.price[0].length).toBe(HESTON_STEPS + 1)
+    expect(sim.vol[0].length).toBe(HESTON_STEPS + 1)
+    for (let k = 0; k < sim.N; k++) {
+      for (const v of sim.price[k]) expect(Number.isFinite(v)).toBe(true)
+      for (const v of sim.vol[k]) expect(Number.isFinite(v) && v >= 0).toBe(true)
+    }
+  })
+
+  it('full truncation keeps variance non-negative: no NaN anywhere', () => {
+    // aggressive vol-of-vol + long horizon stress-tests the Euler scheme
+    const sim = simulateHeston({ ...base, sigv: 1.0, T: 2 })
+    for (let k = 0; k < sim.N; k++) {
+      for (const v of sim.vol[k]) expect(Number.isFinite(v) && v >= 0).toBe(true)
+      expect(sim.dd[k]).toBeLessThanOrEqual(0)
+    }
+  })
+
+  it('reproduces the drift: E[S_T] ~ S0 * exp(r * T)', () => {
+    const sim = simulateHeston(base)
+    const mean = sim.term.reduce((a, b) => a + b, 0) / sim.N
+    const expected = base.S0 * Math.exp(base.r * base.T)
+    expect(mean).toBeGreaterThan(expected * 0.99)
+    expect(mean).toBeLessThan(expected * 1.01)
+  })
+
+  it('reproduces the default run and re-samples on a new seed', () => {
+    expect(simulateHeston(base).term).toEqual(simulateHeston(base).term)
+    expect(simulateHeston({ ...base, seed: 7 }).term).not.toEqual(simulateHeston(base).term)
+  })
+
+  it('hestonSimStats stays in sane ranges', () => {
+    const sim = simulateHeston(base)
+    const st = hestonSimStats(sim)
+    expect(st.mean).toBeGreaterThan(0)
+    expect(st.losses).toBeGreaterThanOrEqual(0)
+    expect(st.losses).toBeLessThanOrEqual(1)
+    expect(st.maxDD).toBeLessThanOrEqual(0)
+    expect(st.eVol).toBeGreaterThan(0)
   })
 })

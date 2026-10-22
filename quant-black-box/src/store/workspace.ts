@@ -338,7 +338,7 @@ export async function extractModelParams(modelId: ModelId): Promise<Record<strin
     },
     heston: () => {
       const s = m.useHeston.getState()
-      return { opt: s.opt, metric: s.metric, S0: s.S0, K: s.K, T: s.T, r: s.r, v0: s.v0, kappa: s.kappa, theta: s.theta, sigv: s.sigv, rho: s.rho, scheme: s.scheme, wire: s.wire, grid: s.grid, axes: s.axes, rot: s.rot }
+      return { opt: s.opt, metric: s.metric, view: s.view, npaths: s.npaths, seed: s.seed, S0: s.S0, K: s.K, T: s.T, r: s.r, v0: s.v0, kappa: s.kappa, theta: s.theta, sigv: s.sigv, rho: s.rho, scheme: s.scheme, wire: s.wire, grid: s.grid, axes: s.axes, rot: s.rot }
     },
     bl: () => {
       const s = m.useBl.getState()

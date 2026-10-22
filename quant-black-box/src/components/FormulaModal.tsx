@@ -4,7 +4,9 @@ import { BlockMath } from 'react-katex'
 
 export interface FormulaDef {
   label: string
-  tex: string
+  tex?: string
+  /** optional provenance / citation line rendered under the formula */
+  ref?: string
 }
 
 export default function FormulaModal({
@@ -50,7 +52,10 @@ export default function FormulaModal({
               {formulas.map((f) => (
                 <div key={f.label}>
                   <div className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.14em] text-label">{f.label}</div>
-                  <BlockMath math={f.tex} />
+                  {f.tex && <BlockMath math={f.tex} />}
+                  {f.ref && (
+                    <div className="whitespace-pre-line text-[9.5px] leading-[1.7] text-label">{f.ref}</div>
+                  )}
                 </div>
               ))}
             </div>

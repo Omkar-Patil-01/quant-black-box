@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Scheme } from '../lib/colors'
+import { HESTON_SIM_SEED } from '../lib/math'
 
 export type Opt = 'call' | 'put'
 export type Metric = 'price' | 'delta'
@@ -53,6 +54,12 @@ export interface HestonState extends DisplayState {
   theta: number
   sigv: number
   rho: number
+  /** 2D path chart (default) or the legacy 3D surface */
+  view: 'paths' | 'surface'
+  /** paths behind the 2D simulation */
+  npaths: number
+  /** re-run seed; bumping it re-samples the paths */
+  seed: number
   set: (p: Partial<HestonState>) => void
 }
 
@@ -73,6 +80,9 @@ export const useHeston = create<HestonState>((set) => ({
   theta: 20,
   sigv: 30,
   rho: -50,
+  view: 'surface',
+  npaths: 200,
+  seed: HESTON_SIM_SEED,
   set: (p) => set(p),
 }))
 

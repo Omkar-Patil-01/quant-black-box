@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import PathChart from '../components/PathChart'
+import type { PathChartHandle } from '../components/PathChart'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -8,14 +10,27 @@ import FormulaModal from '../components/FormulaModal'
 import LiveMarketIngestion from '../components/LiveMarketIngestion'
 import RightSidebar from '../components/RightSidebar'
 import { HESTON_FORMULAS } from '../lib/formulas'
-import { hestonP1, hestonPrice } from '../lib/math'
+import { hestonP1, hestonPrice, hestonSimStats, simulateHeston } from '../lib/math'
 import type { HestonParams } from '../lib/math'
-import { money } from '../lib/format'
+import { money, pct } from '../lib/format'
 import { useDebounced, useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
 import type { Metric, Opt } from '../store/models'
 import { useHeston } from '../store/models'
+import type { HestonState } from '../store/models'
+
+const HL = { best: '#10b981', second: '#dc2626', third: '#22d3ee', median: '#f59e0b', worst: '#8b5cf6' }
+
+/** Literature parameter sets, expressed in this store's units: v0/theta are vol-% (squared to variance),
+    kappa is kappa x10, rho and r are x100. Sources are cited in the formula modal's References block. */
+const PRESETS: { label: string; p: Partial<HestonState> }[] = [
+  { label: 'Heston 1993 (Table 1)', p: { v0: 10, kappa: 20, theta: 10, sigv: 10, rho: 0, r: 0 } },
+  { label: 'Bates 1996 (SV)', p: { v0: 14, kappa: 11, theta: 14, sigv: 33, rho: 11 } },
+  { label: 'Bakshi-Cao-Chen 1997 (SV)', p: { v0: 20, kappa: 12, theta: 20, sigv: 39, rho: -64 } },
+  { label: 'Little Heston Trap A', p: { v0: 13, kappa: 16, theta: 20, sigv: 58, rho: -57, r: 3 } },
+  { label: 'Little Heston Trap B', p: { v0: 20, kappa: 15, theta: 20, sigv: 30, rho: -90, r: 3 } },
+]
 
 export default function HestonPage() {
   const s = useHeston()
@@ -25,6 +40,9 @@ export default function HestonPage() {
   const mobile = useIsMobile()
   const [info, setInfo] = useState(false)
   const [resetToken, setResetToken] = useState(0)
+  const [zoomPct, setZoomPct] = useState(100)
+  const [preset, setPreset] = useState('')
+  const chartRef = useRef<PathChartHandle>(null)
   const recordRun = useWorkspace((st) => st.recordRun)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
@@ -97,6 +115,50 @@ export default function HestonPage() {
     }
   }, [surfaceKey, gridN])
 
+  // Model params ride the same debounce as the surface; npaths and seed re-run immediately.
+  const sim = useMemo(
+    () =>
+      simulateHeston({
+        S0,
+        T: surfaceKey.T,
+        r: surfaceKey.r,
+        v0: (surfaceKey.v0 / 100) * (surfaceKey.v0 / 100),
+        kappa: surfaceKey.kappa / 10,
+        theta: (surfaceKey.theta / 100) * (surfaceKey.theta / 100),
+        sigv: surfaceKey.sigv / 100,
+        rho: surfaceKey.rho / 100,
+        npaths: mobile ? Math.min(s.npaths, 150) : s.npaths,
+        seed: s.seed,
+      }),
+    [S0, surfaceKey, s.npaths, s.seed, mobile],
+  )
+
+  const simStats = useMemo(() => hestonSimStats(sim), [sim])
+
+  const highlights = useMemo(() => {
+    const N = sim.N
+    return [
+      { index: N - 1, color: HL.best },
+      { index: N - 2, color: HL.second },
+      { index: N - 3, color: HL.third },
+      { index: Math.floor(N / 2), color: HL.median },
+      { index: 0, color: HL.worst },
+    ]
+  }, [sim.N])
+
+  const runSimulation = useCallback(() => {
+    s.set({ seed: Math.floor(Math.random() * 1e9) })
+  }, [s.set])
+
+  const applyPreset = useCallback(
+    (v: string) => {
+      setPreset(v)
+      const p = PRESETS[Number(v)]
+      if (p) s.set(p.p)
+    },
+    [s.set],
+  )
+
   const stats = useMemo(() => {
     const m = hestonPrice(S0, K, T, params)
     const atm = hestonPrice(S0, S0, 1, params)
@@ -144,18 +206,37 @@ export default function HestonPage() {
   }, [s.set])
 
   const metricsContent = (
-    <StatList mobile={mobile}>
-      <Stat k="ATM Call (1Y)" v={money(stats.atm)} tone="price" mobile={mobile} />
-      <Stat k="Call" v={money(stats.call)} tone="price" mobile={mobile} />
-      <Stat k="Put" v={money(stats.put)} tone="price" mobile={mobile} />
-      <Stat k="Forward Vol" v={(stats.fvol * 100).toFixed(1) + '%'} mobile={mobile} />
-      <Stat k="Feller" v={stats.feller.toFixed(2) + (stats.feller > 1 ? ' ✓' : ' ⚠')} mobile={mobile} />
-      <Stat k="Delta" v={stats.delta.toFixed(4)} mobile={mobile} />
-      <Stat k="Gamma" v={stats.gamma.toFixed(4)} mobile={mobile} />
-      <Stat k="Vega" v={stats.vega.toFixed(3)} mobile={mobile} />
-      <Stat k="Theta" v={stats.theta.toFixed(3)} mobile={mobile} />
-      <Stat k="Rho" v={stats.rho.toFixed(3)} mobile={mobile} />
-    </StatList>
+    <>
+      <StatList mobile={mobile}>
+        <Stat k="ATM Call (1Y)" v={money(stats.atm)} tone="price" mobile={mobile} />
+        <Stat k="Call" v={money(stats.call)} tone="price" mobile={mobile} />
+        <Stat k="Put" v={money(stats.put)} tone="price" mobile={mobile} />
+        <Stat k="Forward Vol" v={(stats.fvol * 100).toFixed(1) + '%'} mobile={mobile} />
+        <Stat k="Feller" v={stats.feller.toFixed(2) + (stats.feller > 1 ? ' ✓' : ' ⚠')} mobile={mobile} />
+        <Stat k="Delta" v={stats.delta.toFixed(4)} mobile={mobile} />
+        <Stat k="Gamma" v={stats.gamma.toFixed(4)} mobile={mobile} />
+        <Stat k="Vega" v={stats.vega.toFixed(3)} mobile={mobile} />
+        <Stat k="Theta" v={stats.theta.toFixed(3)} mobile={mobile} />
+        <Stat k="Rho" v={stats.rho.toFixed(3)} mobile={mobile} />
+      </StatList>
+      {s.view === 'paths' && (
+        <div className="border-t border-line px-3.5 pb-3.5 pt-3">
+          <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-label">
+            Simulation ({sim.N} paths)
+          </div>
+          <StatList mobile={mobile}>
+            <Stat k="E[PRICE]" v={money(simStats.mean)} tone="price" mobile={mobile} />
+            <Stat k="Median" v={money(simStats.median)} tone="price" mobile={mobile} />
+            <Stat k="VaR 5%" v={money(simStats.var5)} tone="neg" mobile={mobile} />
+            <Stat k="95th" v={money(simStats.p95)} tone="price" mobile={mobile} />
+            <Stat k="P(LOSS)" v={(simStats.losses * 100).toFixed(1) + '%'} mobile={mobile} />
+            <Stat k="95% CI" v={'± ' + money(simStats.ci95)} mobile={mobile} />
+            <Stat k="E[VOL]" v={(simStats.eVol * 100).toFixed(1) + '%'} mobile={mobile} />
+            <Stat k="Max DD" v={pct(simStats.maxDD)} tone="neg" mobile={mobile} />
+          </StatList>
+        </div>
+      )}
+    </>
   )
 
   const paramsContent = (
@@ -163,6 +244,24 @@ export default function HestonPage() {
       <LiveMarketIngestion onApply={handleApplyLiveData} />
 
       <Accordion title="PARAMETERS">
+        <ParamLabel>Chart</ParamLabel>
+        <Seg
+          options={[
+            { value: 'paths', label: '2D PATHS' },
+            { value: 'surface', label: '3D SURFACE' },
+          ]}
+          value={s.view}
+          onChange={(v) => s.set({ view: v as 'paths' | 'surface' })}
+        />
+        <Select
+          label="PRESET"
+          value={preset}
+          options={[
+            { value: '', label: 'Custom' },
+            ...PRESETS.map((p, i) => ({ value: String(i), label: p.label })),
+          ]}
+          onChange={applyPreset}
+        />
         <ParamLabel>Option Type</ParamLabel>
         <Seg
           options={[
@@ -172,15 +271,19 @@ export default function HestonPage() {
           value={s.opt}
           onChange={(v) => s.set({ opt: v as Opt })}
         />
-        <ParamLabel>Surface Metric</ParamLabel>
-        <Seg
-          options={[
-            { value: 'price', label: 'PRICE' },
-            { value: 'delta', label: 'DELTA' },
-          ]}
-          value={s.metric}
-          onChange={(v) => s.set({ metric: v as Metric })}
-        />
+        {s.view === 'surface' && (
+          <>
+            <ParamLabel>Surface Metric</ParamLabel>
+            <Seg
+              options={[
+                { value: 'price', label: 'PRICE' },
+                { value: 'delta', label: 'DELTA' },
+              ]}
+              value={s.metric}
+              onChange={(v) => s.set({ metric: v as Metric })}
+            />
+          </>
+        )}
         <Slider label="SPOT (S)" min={10} max={300} step={1} value={S0} display={money(S0)} onChange={(v) => s.set({ S0: v })} mobile={mobile} />
         <Slider label="STRIKE (K)" min={10} max={300} step={1} value={K} display={money(K)} onChange={(v) => s.set({ K: v })} mobile={mobile} />
         <Slider label="TIME (T)" min={1} max={200} step={1} value={s.T} display={T.toFixed(2) + 'y'} onChange={(v) => s.set({ T: v })} mobile={mobile} />
@@ -190,19 +293,91 @@ export default function HestonPage() {
         <Slider label="LONG VOL" min={1} max={80} step={1} value={s.theta} display={s.theta.toFixed(1) + '%'} onChange={(v) => s.set({ theta: v })} mobile={mobile} />
         <Slider label="VOL OF VOL (σv)" min={1} max={200} step={1} value={s.sigv} display={s.sigv.toFixed(1) + '%'} onChange={(v) => s.set({ sigv: v })} mobile={mobile} />
         <Slider label="CORRELATION (ρ)" min={-100} max={100} step={1} value={s.rho} display={params.rho.toFixed(2)} onChange={(v) => s.set({ rho: v })} mobile={mobile} />
+        {s.view === 'paths' && (
+          <>
+            <Slider label="PATHS" min={100} max={1000} step={25} value={s.npaths} display={String(s.npaths)} onChange={(v) => s.set({ npaths: v })} mobile={mobile} />
+            <button
+              type="button"
+              onClick={runSimulation}
+              className="mb-1 w-full cursor-pointer rounded border border-green/40 bg-green/10 py-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-green transition-colors hover:bg-green/20"
+            >
+              ▶ Run Simulation
+            </button>
+          </>
+        )}
       </Accordion>
 
-      <Accordion title="DISPLAY">
-        <DisplayControls value={s} onChange={s.set} />
-      </Accordion>
+      {s.view === 'surface' && (
+        <Accordion title="DISPLAY">
+          <DisplayControls value={s} onChange={s.set} />
+        </Accordion>
+      )}
     </>
   )
+
+  const chartTitle = s.view === 'paths' ? '2D HESTON PATHS' : '3D HESTON PRICE SURFACE'
+
+  const chartHint =
+    s.view === 'paths'
+      ? `Scroll: Zoom · Drag: Pan · ${zoomPct}% · Paths sorted by terminal · [B] left · [R] right`
+      : 'Drag to rotate · Scroll to zoom · Right-click to pan · [B] left · [R] right'
+
+  const volFmt = (v: number) => (v * 100).toFixed(0) + '%'
+
+  const chartCanvas =
+    s.view === 'paths' ? (
+      <div className="flex h-full flex-col">
+        <div className="relative min-h-0 flex-1">
+          <PathChart
+            ref={chartRef}
+            paths={sim.price}
+            T={sim.T}
+            highlights={highlights}
+            target={S0}
+            targetLabel="S₀"
+            yFmt={(v) => money(v, 0)}
+            hist={false}
+            resetToken={resetToken}
+            onZoom={setZoomPct}
+          />
+        </div>
+        <div className="relative min-h-0 flex-1 border-t border-line">
+          <PathChart
+            paths={sim.vol}
+            T={sim.T}
+            highlights={highlights}
+            target={s.theta / 100}
+            targetLabel="νθ"
+            yFmt={volFmt}
+            hist={false}
+            resetToken={resetToken}
+          />
+        </div>
+      </div>
+    ) : (
+      <SurfaceChart
+        points={surface.points}
+        dataShape={surface.shape}
+        xName="SPOT"
+        yName="TIME"
+        zName={s.metric.toUpperCase()}
+        xRange={surface.xRange}
+        yRange={surface.yRange}
+        scheme={s.scheme}
+        wire={s.wire}
+        grid={s.grid}
+        axes={s.axes}
+        rot={s.rot}
+        resetToken={resetToken}
+        mobile={mobile}
+      />
+    )
 
   if (mobile) {
     return (
       <div className="flex h-screen flex-col">
         <Header
-          title="3D HESTON PRICE SURFACE"
+          title={chartTitle}
           badge={s.opt.toUpperCase()}
           badgeTone={s.opt === 'put' ? 'red' : 'green'}
           onInfo={() => setInfo(true)}
@@ -213,22 +388,7 @@ export default function HestonPage() {
         <div className="relative min-h-0 flex-1">
           {mobilePanel === 'canvas' && (
             <>
-              <SurfaceChart
-                points={surface.points}
-                dataShape={surface.shape}
-                xName="SPOT"
-                yName="TIME"
-                zName={s.metric.toUpperCase()}
-                xRange={surface.xRange}
-                yRange={surface.yRange}
-                scheme={s.scheme}
-                wire={s.wire}
-                grid={s.grid}
-                axes={s.axes}
-                rot={s.rot}
-                resetToken={resetToken}
-                mobile
-              />
+              {chartCanvas}
               <MobileCanvasControls
                 onReset={() => setResetToken((t) => t + 1)}
                 onColorScheme={() => {}}
@@ -275,22 +435,8 @@ export default function HestonPage() {
         )}
 
         <div className="relative min-w-0 flex-1">
-          <SurfaceChart
-            points={surface.points}
-            dataShape={surface.shape}
-            xName="SPOT"
-            yName="TIME"
-            zName={s.metric.toUpperCase()}
-            xRange={surface.xRange}
-            yRange={surface.yRange}
-            scheme={s.scheme}
-            wire={s.wire}
-            grid={s.grid}
-            axes={s.axes}
-            rot={s.rot}
-            resetToken={resetToken}
-          />
-          <Hint text="Drag to rotate · Scroll to zoom · Right-click to pan · Resolution: 26² · [B] left · [R] right · [M] market data" />
+          {chartCanvas}
+          <Hint text={chartHint} />
         </div>
 
         {rightOpen && (

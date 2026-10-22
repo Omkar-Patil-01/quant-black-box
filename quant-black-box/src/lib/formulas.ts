@@ -40,6 +40,20 @@ export const HESTON_FORMULAS: FormulaDef[] = [
     label: 'Feller Condition',
     tex: String.raw`2\kappa\theta \geq \sigma_v^2`,
   },
+  {
+    label: 'Full-Truncation Euler (2D paths)',
+    tex: String.raw`v_{t+1} = v_t + \kappa(\theta - v_t^{+})\Delta t + \sigma_v\sqrt{v_t^{+}\Delta t}\,Z_2`,
+  },
+  {
+    label: 'References',
+    ref: `Heston, S. (1993), "A Closed-Form Solution for Options with Stochastic Volatility", Rev. Fin. Studies 6(2), 327–343 — Table 1.
+Bates, D. (1996), "Jumps and Stochastic Volatility", Rev. Fin. Studies 9(1), 69–107.
+Bakshi, Cao & Chen (1997), J. Finance 52(5), 2003–2049 — stochastic-volatility parameter set.
+Albrecher, Mayer, Schoutens & Tistaert (2006/07), "The Little Heston Trap" — the call price must take the φ₂ root with ψ on the (−∞,−1) branch; the naive principal square root mis-prices whenever 2κθ < σ². This implementation uses the trap-safe root.
+Andersen, Lake & Offengenden (2016) — fully truncated Heston characteristic function.
+
+The 2D PATHS view is a Monte Carlo simulation of the two SDEs above: full truncation (v+ = max(v,0)) in the drift and the diffusion, log-Euler for spot, 60 steps, mulberry32 seeded so a run is reproducible.`,
+  },
 ]
 
 export const BL_FORMULAS: FormulaDef[] = [
