@@ -97,6 +97,8 @@ export interface BlState extends DisplayState {
   del: number
   q1: number
   q2: number
+  /** 2D tilt view (bars + tau sweep) or the legacy 3D surface */
+  view: 'tilt' | 'surface'
   set: (p: Partial<BlState>) => void
 }
 
@@ -113,6 +115,7 @@ export const useBl = create<BlState>((set) => ({
   del: 10,
   q1: 5,
   q2: 8,
+  view: 'surface',
   set: (p) => set(p),
 }))
 

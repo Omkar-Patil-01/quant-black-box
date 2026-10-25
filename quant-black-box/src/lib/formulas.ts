@@ -69,6 +69,15 @@ export const BL_FORMULAS: FormulaDef[] = [
     label: 'Posterior Covariance',
     tex: String.raw`\Sigma^{*} = \Sigma + \left[(\tau\Sigma)^{-1} + P^\top \Omega^{-1} P\right]^{-1}`,
   },
+  {
+    label: 'References',
+    ref: `Black, F. & Litterman, R. (1992), "Global Portfolio Optimization", Financial Analysts Journal 48(5), 28–43 — equilibrium prior Π = δΣw_mkt and the mixed-estimation posterior mean (Appendix, eq. 8).
+He, G. & Litterman, R. (1999), "The Intuition Behind Black-Litterman Model Portfolios", Goldman Sachs IM Research — portfolio reading w* = w_eq + P′Λ; calibration convention ω/τ = p′Σp so τ need not be set separately.
+Satchell, S. & Scowcroft, E. (2000), "A Demystification of the Black-Litterman Model", J. Asset Mgmt 1(2), 138–150 — full posterior variance [(τΣ)⁻¹+P′Ω⁻¹P]⁻¹ (Thm 1), which this implementation uses for the predictive covariance SigP = Σ + Var(E[R]).
+Idzorek, T. (2005), "A Step-By-Step Guide to the BL Model: user-specified confidence levels" — 0–100% confidence per view solved into Ω (Formulas 10–19).
+
+This implementation follows the canonical chain: Pi = Σ(λw_mkt), posterior mean per B&L's appendix formula, Ω = del·diag(PΣ) (the He–Litterman/Idzorek calibration ω_k = τ·p_kΣp_k′, with del as the confidence multiplier; del = τ reproduces ω/τ = p′Σp). Two deliberate deviations from Idzorek Formula 2: weights use the predictive covariance SigP (Satchell–Scowcroft Thm 1) instead of (λΣ)⁻¹E[R], and λ is user-set (He–Litterman δ-style input) rather than derived from a market risk premium.`,
+  },
 ]
 
 export const MC_FORMULAS: FormulaDef[] = [
