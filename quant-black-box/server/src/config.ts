@@ -6,8 +6,6 @@ loadEnv();
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  // Optional: without it only /api/market/* goes dark, never the whole API.
-  LSE_API_KEY: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

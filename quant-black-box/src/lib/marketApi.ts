@@ -52,8 +52,9 @@ export interface SeriesRow {
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, init)
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(body.detail || `API error ${res.status}`)
+    // The server sends { error }, some upstreams use { detail } — surface either.
+    const body = await res.json().catch(() => ({}) as { detail?: string; error?: string })
+    throw new Error(body.detail || body.error || `API error ${res.status}`)
   }
   return res.json()
 }

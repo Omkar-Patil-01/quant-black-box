@@ -109,7 +109,7 @@ export default function LiveMarketIngestion({ onApply }: LiveMarketIngestionProp
       setIsPlaying(true)
 
       const closes = rows.map((r) => r.close)
-      const vol = computeVolatility(closes.slice(0, 1), interval)
+      const vol = computeVolatility(closes, interval)
       onApply({ S0: Math.round(closes[0]), sig: Math.round(vol * 100), mu: 0 })
 
       const now = new Date()
