@@ -212,7 +212,20 @@ export function ColorDropdown({ value, onChange }: { value: Scheme; onChange: (v
   )
 }
 
-export function Accordion({ title, children, defaultOpen = true }: { title: string; children: ReactNode; defaultOpen?: boolean }) {
+/** Compact label+value pill for a collapsed Accordion summary strip. */
+export function Chip({ k, v }: { k: string; v: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1 rounded border border-border bg-[#0a0a0a] px-1.5 py-[3px]">
+      <span className="text-[8px] font-medium uppercase tracking-[0.1em] text-label">{k}</span>
+      <span className="font-mono text-[10px] font-medium text-white">{v}</span>
+    </span>
+  )
+}
+
+/** `summary` renders a read-only chip strip under the title when collapsed, filling the
+    dead space of a collapsed section. The whole row still toggles open; chips are a
+    glance-only convenience and hide when the section is expanded. */
+export function Accordion({ title, children, defaultOpen = true, summary }: { title: string; children: ReactNode; defaultOpen?: boolean; summary?: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="border-b border-line">
@@ -230,6 +243,9 @@ export function Accordion({ title, children, defaultOpen = true }: { title: stri
           <ChevronDown size={12} />
         </motion.span>
       </button>
+      {!open && summary && (
+        <div className="-mt-1 flex flex-wrap gap-1 px-3.5 pb-2.5">{summary}</div>
+      )}
       <motion.div
         initial={false}
         animate={{ height: open ? 'auto' : 0 }}

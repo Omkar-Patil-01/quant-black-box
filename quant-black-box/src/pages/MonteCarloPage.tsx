@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Maximize2, Play, ZoomIn, ZoomOut } from 'lucide-react'
 import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, BarStat, Field, Hint, IconBtn, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, BarStat, Chip, Field, Hint, IconBtn, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
 import SurfaceChart from '../components/SurfaceChart'
@@ -243,7 +243,18 @@ export default function MonteCarloPage() {
     <>
       <LiveMarketIngestion onApply={handleApplyLiveData} />
 
-      <Accordion title="PARAMETERS">
+      <Accordion
+        title="PARAMETERS"
+        summary={
+          <>
+            <Chip k="Mode" v={s.view === 'surface' ? '3D' : '2D'} />
+            <Chip k="View" v={s.metric === 'price' ? 'Price' : s.metric === 'ret' ? 'P&L %' : 'P&L $'} />
+            <Chip k="Inv" v={money(s.investment, 0)} />
+            <Chip k="Tgt" v={`${s.target}%`} />
+            <Chip k="Horizon" v={horizonOptions.find((o) => o.value === String(s.T))?.label ?? `${s.T}`} />
+          </>
+        }
+      >
         <ParamLabel>Chart</ParamLabel>
         <Seg
           options={[
@@ -273,7 +284,19 @@ export default function MonteCarloPage() {
         />
       </Accordion>
 
-      <Accordion title="MODEL ASSUMPTIONS">
+      <Accordion
+        title="MODEL ASSUMPTIONS"
+        summary={
+          <>
+            <Chip k="S₀" v={money(S0, 0)} />
+            <Chip k="μ" v={`${s.mu.toFixed(1)}%`} />
+            <Chip k="σ" v={`${s.sig.toFixed(1)}%`} />
+            <Chip k="N" v={String(npaths)} />
+            <Chip k="r" v={`${s.r.toFixed(1)}%`} />
+            <Chip k="γ" v={gam.toFixed(2)} />
+          </>
+        }
+      >
         <Slider label="ENTRY PRICE (S₀)" min={10} max={500} step={1} value={S0} display={money(S0)} onChange={(v) => s.set({ S0: v })} mobile={mobile} />
         <Slider label="EXPECTED RETURN" min={-20} max={60} step={1} value={s.mu} display={s.mu.toFixed(1) + '%/yr'} onChange={(v) => s.set({ mu: v })} mobile={mobile} />
         <Slider label="VOLATILITY" min={1} max={100} step={1} value={s.sig} display={s.sig.toFixed(1) + '%'} onChange={(v) => s.set({ sig: v })} mobile={mobile} />

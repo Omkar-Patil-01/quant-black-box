@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
 import RightSidebar from '../components/RightSidebar'
@@ -356,7 +356,16 @@ export default function KalmanFilterPage() {
         />
       </Accordion>
 
-      <Accordion title="STATE-SPACE">
+      <Accordion
+        title="STATE-SPACE"
+        summary={
+          <>
+            <Chip k="n" v={String(s.n)} />
+            <Chip k="m" v={String(s.m)} />
+            <Chip k="Steps" v={String(s.nDays)} />
+          </>
+        }
+      >
         <ParamLabel>Number of States (n)</ParamLabel>
         <Seg
           options={[1, 2, 3, 4, 5].map((v) => ({ value: String(v), label: String(v) }))}
@@ -372,7 +381,15 @@ export default function KalmanFilterPage() {
         <Slider label="FORECAST HORIZON" min={1} max={60} step={1} value={s.nDays} display={`${s.nDays} steps`} onChange={(v) => s.set({ nDays: v })} mobile={mobile} />
       </Accordion>
 
-      <Accordion title="NOISE TUNING">
+      <Accordion
+        title="NOISE TUNING"
+        summary={
+          <>
+            <Chip k="Q" v={s.Q.toFixed(4)} />
+            <Chip k="R" v={s.R.toFixed(4)} />
+          </>
+        }
+      >
         <Slider label="Q · PROCESS NOISE" min={0.0001} max={1} step={0.0001} value={s.Q} display={s.Q.toFixed(4)} onChange={(v) => s.set({ Q: v })} mobile={mobile} />
         <Slider label="R · OBSERVATION NOISE" min={0.0001} max={1} step={0.0001} value={s.R} display={s.R.toFixed(4)} onChange={(v) => s.set({ R: v })} mobile={mobile} />
         <div className="mt-2 text-[8px] text-label leading-relaxed">

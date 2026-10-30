@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
 import SurfaceChart from '../components/SurfaceChart'
@@ -243,7 +243,23 @@ export default function HestonPage() {
     <>
       <LiveMarketIngestion onApply={handleApplyLiveData} />
 
-      <Accordion title="PARAMETERS">
+      <Accordion
+        title="PARAMETERS"
+        summary={
+          <>
+            <Chip k="View" v={s.view === 'surface' ? '3D' : '2D'} />
+            <Chip k="Type" v={s.opt === 'put' ? 'Put' : 'Call'} />
+            <Chip k="S" v={money(S0, 0)} />
+            <Chip k="K" v={money(K, 0)} />
+            <Chip k="T" v={`${T.toFixed(2)}y`} />
+            <Chip k="v₀" v={`${s.v0.toFixed(1)}%`} />
+            <Chip k="κ" v={params.kappa.toFixed(2)} />
+            <Chip k="θ" v={`${s.theta.toFixed(1)}%`} />
+            <Chip k="σv" v={`${s.sigv.toFixed(1)}%`} />
+            <Chip k="ρ" v={params.rho.toFixed(2)} />
+          </>
+        }
+      >
         <ParamLabel>Chart</ParamLabel>
         <Seg
           options={[

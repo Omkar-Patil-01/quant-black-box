@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -177,7 +177,20 @@ export default function BlackLittermanPage() {
     <>
       <LiveMarketIngestion onApply={() => {}} />
 
-      <Accordion title="PARAMETERS">
+      <Accordion
+        title="PARAMETERS"
+        summary={
+          <>
+            <Chip k="View" v={s.view === 'surface' ? '3D' : '2D'} />
+            <Chip k="Metric" v={s.metric === 'wgt' ? 'Weights' : 'Returns'} />
+            <Chip k="λ" v={lam.toFixed(2)} />
+            <Chip k="τ" v={tau.toFixed(3)} />
+            <Chip k="δ" v={del.toFixed(2)} />
+            <Chip k="V1" v={`${(q1 * 100).toFixed(1)}%`} />
+            <Chip k="V2" v={`${(q2 * 100).toFixed(1)}%`} />
+          </>
+        }
+      >
         <ParamLabel>Surface Metric</ParamLabel>
         <Seg
           options={[

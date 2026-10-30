@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -107,7 +107,18 @@ export default function AptPage() {
     <>
       <LiveMarketIngestion onApply={() => {}} />
 
-      <Accordion title="PARAMETERS">
+      <Accordion
+        title="PARAMETERS"
+        summary={
+          <>
+            <Chip k="Metric" v={s.metric === 'alpha' ? 'Alpha' : 'Fair'} />
+            <Chip k="r" v={`${s.r.toFixed(1)}%`} />
+            <Chip k="λM" v={`${s.lam.toFixed(1)}%`} />
+            <Chip k="λS" v={`${s.lams.toFixed(1)}%`} />
+            <Chip k="λV" v={`${s.lamv.toFixed(1)}%`} />
+          </>
+        }
+      >
         <ParamLabel>Surface Metric</ParamLabel>
         <Seg
           options={[

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Line, LineChart, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -136,7 +136,19 @@ export default function BlackScholesPage() {
     <>
       <LiveMarketIngestion onApply={handleApplyLiveData} />
 
-      <Accordion title="PARAMETERS">
+      <Accordion
+        title="PARAMETERS"
+        summary={
+          <>
+            <Chip k="Type" v={s.opt === 'put' ? 'Put' : 'Call'} />
+            <Chip k="Metric" v={s.metric === 'delta' ? 'Delta' : 'Price'} />
+            <Chip k="S" v={money(S0, 0)} />
+            <Chip k="K" v={money(K, 0)} />
+            <Chip k="T" v={`${T.toFixed(2)}y`} />
+            <Chip k="σ" v={`${s.sig.toFixed(1)}%`} />
+          </>
+        }
+      >
         <ParamLabel>Option Type</ParamLabel>
         <Seg
           options={[
