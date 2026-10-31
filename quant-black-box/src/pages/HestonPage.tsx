@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
+import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
@@ -445,19 +445,22 @@ export default function HestonPage() {
       />
       <ModelShell>
         {leftOpen && (
-          <LeftPanel>
+          <LeftPanel onCollapse={() => setLeftOpen(false)}>
             {paramsContent}
           </LeftPanel>
         )}
 
-        <div className="relative min-w-0 flex-1">
-          {chartCanvas}
-          <Hint text={chartHint} />
-        </div>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          {!leftOpen && <ParamsReveal onClick={() => setLeftOpen(true)} />}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            {chartCanvas}
+            <Hint text={chartHint} />
+          </div>
 
-        {rightOpen && (
-          <RightSidebar metricsContent={metricsContent} scaleLabel={s.metric === 'delta' ? 'DELTA SCALE' : 'PRICE SCALE'} />
-        )}
+          {rightOpen && (
+            <RightSidebar metricsContent={metricsContent} scaleLabel={s.metric === 'delta' ? 'DELTA SCALE' : 'PRICE SCALE'} />
+          )}
+        </div>
       </ModelShell>
 
       <FormulaModal open={info} title="Heston Stochastic Volatility" formulas={HESTON_FORMULAS} onClose={() => setInfo(false)} />

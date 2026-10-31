@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Maximize2, Play, ZoomIn, ZoomOut } from 'lucide-react'
-import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
+import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, BarStat, Chip, Field, Hint, IconBtn, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
@@ -451,22 +451,25 @@ export default function MonteCarloPage() {
       />
       <ModelShell>
         {leftOpen && (
-          <LeftPanel>
+          <LeftPanel onCollapse={() => setLeftOpen(false)}>
             {paramsContent}
           </LeftPanel>
         )}
 
-        <div className="relative min-w-0 flex-1">
-          {chartCanvas}
-          <Hint text={chartHint} />
-        </div>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          {!leftOpen && <ParamsReveal onClick={() => setLeftOpen(true)} />}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            {chartCanvas}
+            <Hint text={chartHint} />
+          </div>
 
-        {rightOpen && (
-          <RightSidebar
-            metricsContent={metricsContent}
-            scaleLabel={s.metric === 'price' ? 'TERMINAL PRICE' : 'TERMINAL P&L'}
-          />
-        )}
+          {rightOpen && (
+            <RightSidebar
+              metricsContent={metricsContent}
+              scaleLabel={s.metric === 'price' ? 'TERMINAL PRICE' : 'TERMINAL P&L'}
+            />
+          )}
+        </div>
       </ModelShell>
 
       <FormulaModal open={info} title="Monte Carlo Simulation" formulas={MC_FORMULAS} onClose={() => setInfo(false)} />

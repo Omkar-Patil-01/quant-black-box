@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeft, BarChart3, Layers, RotateCcw, Save, Settings, Square } from 'lucide-react'
+import { ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Layers, RotateCcw, Save, Settings, Square } from 'lucide-react'
 import type { MobilePanel, View } from '../store/app'
 import { useApp } from '../store/app'
 import { useWorkspace, extractModelParams } from '../store/workspace'
@@ -241,15 +241,41 @@ export function ModelShell({ children }: { children: ReactNode }) {
   return <div className={`flex min-h-0 flex-1 overflow-hidden ${mobile ? 'flex-col' : ''}`}>{children}</div>
 }
 
-export function LeftPanel({ children }: { children: ReactNode }) {
+export function LeftPanel({ children, onCollapse }: { children: ReactNode; onCollapse?: () => void }) {
   const mobile = useIsMobile()
   if (mobile) return null
   return (
-    <aside className="flex h-full w-[320px] shrink-0 flex-col overflow-y-auto border-r border-border bg-black">
+    <aside className="flex h-full w-[20%] min-w-[200px] shrink-0 flex-col overflow-y-auto border-r border-border bg-black">
+      {onCollapse && (
+        <button
+          type="button"
+          onClick={onCollapse}
+          title="Hide parameters (B)"
+          className="sticky top-0 z-10 flex shrink-0 cursor-pointer items-center justify-between border-b border-line bg-black px-3.5 py-2.5 text-left"
+        >
+          <span className="text-[10px] font-semibold tracking-[0.14em] text-white">PARAMETERS</span>
+          <ChevronLeft size={13} className="text-[#666666]" />
+        </button>
+      )}
       <div className="p-3.5 pt-3 space-y-0">
         {children}
       </div>
     </aside>
+  )
+}
+
+/** Floating button to re-open the collapsed Parameters panel (top-left of the canvas). */
+export function ParamsReveal({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Show parameters (B)"
+      className="absolute left-3 top-3 z-20 flex cursor-pointer items-center gap-1.5 rounded border border-border bg-black/90 px-2.5 py-1.5 font-sans text-[10px] font-medium text-white backdrop-blur transition-colors hover:border-[#666666]"
+    >
+      <ChevronRight size={12} className="text-[#666666]" />
+      PARAMETERS
+    </button>
   )
 }
 

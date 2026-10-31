@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Line, LineChart, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
+import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -269,33 +269,36 @@ export default function BlackScholesPage() {
       />
       <ModelShell>
         {leftOpen && (
-          <LeftPanel>
+          <LeftPanel onCollapse={() => setLeftOpen(false)}>
             {paramsContent}
           </LeftPanel>
         )}
 
-        <div className="relative min-w-0 flex-1">
-          <SurfaceChart
-            points={surface.points}
-            dataShape={surface.shape}
-            xName="SPOT"
-            yName="TIME"
-            zName={s.metric.toUpperCase()}
-            xRange={surface.xRange}
-            yRange={surface.yRange}
-            scheme={s.scheme}
-            wire={s.wire}
-            grid={s.grid}
-            axes={s.axes}
-            rot={s.rot}
-            resetToken={resetToken}
-          />
-          <Hint text="Drag to rotate · Scroll to zoom · Right-click to pan · Resolution: 50² · [B] left · [R] right · [M] market data" />
-        </div>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          {!leftOpen && <ParamsReveal onClick={() => setLeftOpen(true)} />}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            <SurfaceChart
+              points={surface.points}
+              dataShape={surface.shape}
+              xName="SPOT"
+              yName="TIME"
+              zName={s.metric.toUpperCase()}
+              xRange={surface.xRange}
+              yRange={surface.yRange}
+              scheme={s.scheme}
+              wire={s.wire}
+              grid={s.grid}
+              axes={s.axes}
+              rot={s.rot}
+              resetToken={resetToken}
+            />
+            <Hint text="Drag to rotate · Scroll to zoom · Right-click to pan · Resolution: 50² · [B] left · [R] right · [M] market data" />
+          </div>
 
-        {rightOpen && (
-          <RightSidebar metricsContent={metricsContent} scaleLabel={s.metric === 'delta' ? 'DELTA SCALE' : 'PRICE SCALE'} />
-        )}
+          {rightOpen && (
+            <RightSidebar metricsContent={metricsContent} scaleLabel={s.metric === 'delta' ? 'DELTA SCALE' : 'PRICE SCALE'} />
+          )}
+        </div>
       </ModelShell>
 
       <FormulaModal open={info} title="Black-Scholes-Merton (BSM)" formulas={BS_FORMULAS} onClose={() => setInfo(false)} />

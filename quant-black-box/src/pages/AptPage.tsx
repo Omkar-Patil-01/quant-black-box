@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
+import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -213,33 +213,36 @@ export default function AptPage() {
       />
       <ModelShell>
         {leftOpen && (
-          <LeftPanel>
+          <LeftPanel onCollapse={() => setLeftOpen(false)}>
             {paramsContent}
           </LeftPanel>
         )}
 
-        <div className="relative min-w-0 flex-1">
-          <SurfaceChart
-            points={surface.points}
-            dataShape={surface.shape}
-            xName="β MARKET"
-            yName="β SIZE"
-            zName="E[R]"
-            xRange={surface.xRange}
-            yRange={surface.yRange}
-            scheme={s.scheme}
-            wire={s.wire}
-            grid={s.grid}
-            axes={s.axes}
-            rot={s.rot}
-            resetToken={resetToken}
-          />
-          <Hint text="Drag to rotate · Scroll to zoom · Right-click to pan · E[R] = r + βM·λM + βS·λS + βV·λV + α · [B] left · [R] right" />
-        </div>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          {!leftOpen && <ParamsReveal onClick={() => setLeftOpen(true)} />}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            <SurfaceChart
+              points={surface.points}
+              dataShape={surface.shape}
+              xName="β MARKET"
+              yName="β SIZE"
+              zName="E[R]"
+              xRange={surface.xRange}
+              yRange={surface.yRange}
+              scheme={s.scheme}
+              wire={s.wire}
+              grid={s.grid}
+              axes={s.axes}
+              rot={s.rot}
+              resetToken={resetToken}
+            />
+            <Hint text="Drag to rotate · Scroll to zoom · Right-click to pan · E[R] = r + βM·λM + βS·λS + βV·λV + α · [B] left · [R] right" />
+          </div>
 
-        {rightOpen && (
-          <RightSidebar metricsContent={metricsContent} scaleLabel={s.metric === 'alpha' ? 'ALPHA-ADJ RETURN' : 'FAIR RETURN'} />
-        )}
+          {rightOpen && (
+            <RightSidebar metricsContent={metricsContent} scaleLabel={s.metric === 'alpha' ? 'ALPHA-ADJ RETURN' : 'FAIR RETURN'} />
+          )}
+        </div>
       </ModelShell>
 
       <FormulaModal open={info} title="Arbitrage Pricing Theory" formulas={APT_FORMULAS} onClose={() => setInfo(false)} />

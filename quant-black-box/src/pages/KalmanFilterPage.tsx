@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
+import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
@@ -464,19 +464,22 @@ export default function KalmanFilterPage() {
       />
       <ModelShell>
         {leftOpen && (
-          <LeftPanel>
+          <LeftPanel onCollapse={() => setLeftOpen(false)}>
             {paramsContent}
           </LeftPanel>
         )}
 
-        <div className="relative min-w-0 flex-1">
-          <MiniDashboard history={history} tick={tick} />
-          <Hint text="PLAY to animate · STEP for single tick · Adjust Q/R to see immediate effect · [B] left · [R] right" />
-        </div>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          {!leftOpen && <ParamsReveal onClick={() => setLeftOpen(true)} />}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            <MiniDashboard history={history} tick={tick} />
+            <Hint text="PLAY to animate · STEP for single tick · Adjust Q/R to see immediate effect · [B] left · [R] right" />
+          </div>
 
-        {rightOpen && (
-          <RightSidebar metricsContent={metricsContent} scaleLabel="KALMAN GAIN" />
-        )}
+          {rightOpen && (
+            <RightSidebar metricsContent={metricsContent} scaleLabel="KALMAN GAIN" />
+          )}
+        </div>
       </ModelShell>
 
       <FormulaModal open={info} title="Kalman Filter" formulas={KF_FORMULAS} onClose={() => setInfo(false)} />

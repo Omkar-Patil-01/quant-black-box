@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import { Header, LeftPanel, ModelShell, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
+import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
 import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -356,19 +356,22 @@ export default function BlackLittermanPage() {
       />
       <ModelShell>
         {leftOpen && (
-          <LeftPanel>
+          <LeftPanel onCollapse={() => setLeftOpen(false)}>
             {paramsContent}
           </LeftPanel>
         )}
 
-        <div className="relative min-w-0 flex-1">
-          {chartCanvas}
-          <Hint text={chartHint} />
-        </div>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          {!leftOpen && <ParamsReveal onClick={() => setLeftOpen(true)} />}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            {chartCanvas}
+            <Hint text={chartHint} />
+          </div>
 
-        {rightOpen && (
-          <RightSidebar metricsContent={metricsContent} scaleLabel={(s.metric === 'ret' ? 'POSTERIOR RETURN' : 'POSTERIOR WEIGHT') + (s.src === 'views' ? ' (VIEWS)' : ' (EQM)')} />
-        )}
+          {rightOpen && (
+            <RightSidebar metricsContent={metricsContent} scaleLabel={(s.metric === 'ret' ? 'POSTERIOR RETURN' : 'POSTERIOR WEIGHT') + (s.src === 'views' ? ' (VIEWS)' : ' (EQM)')} />
+          )}
+        </div>
       </ModelShell>
 
       <FormulaModal open={info} title="Black-Litterman Model" formulas={BL_FORMULAS} onClose={() => setInfo(false)} />

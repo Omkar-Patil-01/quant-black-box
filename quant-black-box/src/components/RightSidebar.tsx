@@ -66,7 +66,7 @@ export default function RightSidebar({ metricsContent, scaleLabel, mobile }: Rig
   }
 
   return (
-    <aside className="flex h-full w-[340px] shrink-0 flex-col overflow-hidden border-l border-border bg-black">
+    <aside className="flex h-[32%] w-full shrink-0 flex-col overflow-hidden border-t border-border bg-black">
       <div className="flex shrink-0 border-b border-line">
         {TABS.map((t) => (
           <button
