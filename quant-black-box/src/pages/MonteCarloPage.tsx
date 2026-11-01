@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Maximize2, Play, ZoomIn, ZoomOut } from 'lucide-react'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, BarStat, Chip, Field, Hint, IconBtn, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, BarStat, Chip, Field, Hint, IconBtn, ParamLabel, Seg, Select, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
 import SurfaceChart from '../components/SurfaceChart'
@@ -193,8 +193,11 @@ export default function MonteCarloPage() {
   }, [s.set])
 
   const topPerformers = (
-    <div className="border-t border-line px-3.5 pb-3.5 pt-3">
-      <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-label">Top Performers</div>
+    <div className="pb-1 pt-1.5">
+      <div className="mb-1 flex items-center gap-2 border-t border-line pt-2">
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white">Top Performers</span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
       {top.map((t) => (
         <div key={t.id} className="flex items-center justify-between border-b border-[#131313] py-[7px] last:border-b-0">
           <span className="flex items-center gap-2 font-mono text-[10px] text-label">
@@ -212,23 +215,74 @@ export default function MonteCarloPage() {
     </div>
   )
 
-  const metricsContent = (
+  const metricsContent = mobile ? (
+    <StatList mobile>
+      <BarStat k="P(PROFIT)" value={(pProfit * 100).toFixed(1) + '%'} ratio={pProfit} tone="green" mobile={mobile} />
+      <BarStat k={`P(+${s.target}%)`} value={(pTarget * 100).toFixed(1) + '%'} ratio={pTarget} tone="amber" mobile={mobile} />
+      <Stat k="E[PORTFOLIO]" v={usd(ePortfolio)} tone="price" mobile={mobile} />
+      <Stat k="VaR 5%" v={usd(var5Pnl)} tone="neg" mobile={mobile} />
+      <Stat k="Median" v={usd(medianPnl, true)} tone="price" mobile={mobile} />
+      <Stat k="95th" v={usd(p95Pnl, true)} tone="price" mobile={mobile} />
+      <Stat k="Std Dev" v={usd(sdPnl)} mobile={mobile} />
+      <Stat k="DaR 95%" v={pct(stats.dd95)} tone="neg" mobile={mobile} />
+      <Stat k="Max DD" v={pct(stats.maxDD)} tone="neg" mobile={mobile} />
+      <Stat k="Skew" v={stats.skew.toFixed(2)} mobile={mobile} />
+      <Stat k="Kurtosis" v={stats.kurt.toFixed(2)} mobile={mobile} />
+      <Stat k="E[U(W)] CRRA" v={stats.util.toFixed(3)} mobile={mobile} />
+    </StatList>
+  ) : (
     <>
-      <StatList mobile={mobile}>
-        <BarStat k="P(PROFIT)" value={(pProfit * 100).toFixed(1) + '%'} ratio={pProfit} tone="green" mobile={mobile} />
-        <BarStat k={`P(+${s.target}%)`} value={(pTarget * 100).toFixed(1) + '%'} ratio={pTarget} tone="amber" mobile={mobile} />
-        <Stat k="E[PORTFOLIO]" v={usd(ePortfolio)} tone="price" mobile={mobile} />
-        <Stat k="VaR 5%" v={usd(var5Pnl)} tone="neg" mobile={mobile} />
-        <Stat k="Median" v={usd(medianPnl, true)} tone="price" mobile={mobile} />
-        <Stat k="95th" v={usd(p95Pnl, true)} tone="price" mobile={mobile} />
-        <Stat k="Std Dev" v={usd(sdPnl)} mobile={mobile} />
-        <Stat k="DaR 95%" v={pct(stats.dd95)} tone="neg" mobile={mobile} />
-        <Stat k="Max DD" v={pct(stats.maxDD)} tone="neg" mobile={mobile} />
-        <Stat k="Skew" v={stats.skew.toFixed(2)} mobile={mobile} />
-        <Stat k="Kurtosis" v={stats.kurt.toFixed(2)} mobile={mobile} />
-        <Stat k="E[U(W)] CRRA" v={stats.util.toFixed(3)} mobile={mobile} />
-      </StatList>
-      {!mobile && topPerformers}
+      <TermGroup title="Run Config">
+        <TermRow k="Spot S₀" v={money(S0)} />
+        <TermRow k="Drift μ" v={`${s.mu.toFixed(1)}%`} />
+        <TermRow k="Vol σ" v={`${s.sig.toFixed(1)}%`} />
+        <TermRow k="Paths N" v={String(npaths)} />
+        <TermRow k="Horizon" v={`${T.toFixed(1)} yr`} />
+        <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
+        <TermRow k="Risk aversion γ" v={gam.toFixed(2)} />
+        <TermRow k="Investment" v={money(s.investment, 0)} />
+        <TermRow k="Target" v={`${s.target}%`} />
+        <TermRow k="Seed" v={String(s.seed)} />
+      </TermGroup>
+
+      <TermGroup title="Terminal Distribution">
+        <TermRow k="Mean" v={money(stats.mean)} tone="price" />
+        <TermRow k="Median" v={money(stats.median)} tone="price" />
+        <TermRow k="Std dev" v={money(stats.sd)} />
+        <TermRow k="Min" v={money(stats.min)} tone="neg" />
+        <TermRow k="Max" v={money(stats.max)} tone="price" />
+        <TermRow k="VaR 5%" v={money(stats.var5)} tone="neg" />
+        <TermRow k="P95" v={money(stats.p95)} />
+        <TermRow k="CI 95" v={`±${money(stats.ci95)}`} />
+        <TermRow k="Skew" v={stats.skew.toFixed(2)} />
+        <TermRow k="Kurtosis" v={stats.kurt.toFixed(2)} />
+      </TermGroup>
+
+      <TermGroup title="Portfolio P&L">
+        <TermRow k="E[Portfolio]" v={usd(ePortfolio)} tone="price" />
+        <TermRow k="VaR 5%" v={usd(var5Pnl)} tone="neg" />
+        <TermRow k="Median" v={usd(medianPnl, true)} tone="price" />
+        <TermRow k="95th" v={usd(p95Pnl, true)} tone="price" />
+        <TermRow k="Std dev" v={usd(sdPnl)} />
+        <TermRow k="Best path" v={usd(pnl(stats.max), true)} tone="price" />
+        <TermRow k="Worst path" v={usd(pnl(stats.min), true)} tone="neg" />
+      </TermGroup>
+
+      <TermGroup title="Risk & Drawdown">
+        <TermRow k="P(profit)" v={(pProfit * 100).toFixed(1) + '%'} bar={pProfit} />
+        <TermRow k={`P(+${s.target}%)`} v={(pTarget * 100).toFixed(1) + '%'} bar={pTarget} barTone="amber" />
+        <TermRow k="P(loss)" v={`${(stats.losses * 100).toFixed(1)}%`} tone="neg" />
+        <TermRow k="DaR 95%" v={pct(stats.dd95)} tone="neg" />
+        <TermRow k="Max DD" v={pct(stats.maxDD)} tone="neg" />
+      </TermGroup>
+
+      <TermGroup title="Risk-Adjusted">
+        <TermRow k="Sharpe" v={sr.toFixed(2)} />
+        <TermRow k="Mean log return" v={stats.mlr.toFixed(4)} />
+        <TermRow k="E[U(W)] CRRA" v={stats.util.toFixed(3)} />
+      </TermGroup>
+
+      {topPerformers}
     </>
   )
 

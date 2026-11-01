@@ -412,6 +412,55 @@ export function Select({
   )
 }
 
+/** Terminal-style stat row: LABEL · · · · · VALUE with a dotted leader.
+    `bar` renders a thin probability bar under the row. */
+export function TermRow({
+  k,
+  v,
+  tone = 'default',
+  bar,
+  barTone = 'green',
+}: {
+  k: string
+  v: string
+  tone?: StatTone
+  bar?: number
+  barTone?: 'green' | 'amber'
+}) {
+  const toneCls = tone === 'price' ? 'text-green' : tone === 'neg' ? 'text-red' : 'text-white'
+  return (
+    <div className="py-[3.5px]">
+      <div className="flex items-baseline gap-2">
+        <span className="shrink-0 font-mono text-[9.5px] uppercase tracking-[0.06em] text-label">{k}</span>
+        <span className="min-w-[10px] flex-1 border-b border-dotted border-[#303030]" />
+        <span className={`shrink-0 font-mono text-[11px] font-medium tabular-nums ${toneCls}`}>{v}</span>
+      </div>
+      {bar !== undefined && (
+        <div className="mt-1 h-[3px] w-full overflow-hidden rounded-full bg-track">
+          <div
+            className={`h-full rounded-full ${barTone === 'amber' ? 'bg-accent-mc' : 'bg-green'}`}
+            style={{ width: `${Math.max(0, Math.min(1, bar)) * 100}%` }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Terminal-style section header + responsive row grid. Rows flow 1→2→3 columns with
+    width, so a short-wide panel (the output strip) uses horizontal space. */
+export function TermGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="pb-2 pt-1.5">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white">{title}</span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+      <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2 xl:grid-cols-3">{children}</div>
+    </div>
+  )
+}
+
 /** Stat row with a probability bar — for P(success) / P(target). */
 export function BarStat({
   k,
