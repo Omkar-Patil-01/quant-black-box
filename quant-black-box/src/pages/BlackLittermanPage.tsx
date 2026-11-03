@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -144,7 +144,7 @@ export default function BlackLittermanPage() {
     return row
   })
 
-  const metricsContent = (
+  const metricsContent = mobile ? (
     <>
       <StatList mobile={mobile}>
       {BL_NAMES.map((name, i) => (
@@ -169,6 +169,46 @@ export default function BlackLittermanPage() {
             ))}
           </StatList>
         </div>
+      )}
+    </>
+  ) : (
+    <>
+      <TermGroup title="Run Config">
+        <TermRow k="Confidence λ" v={lam.toFixed(2)} />
+        <TermRow k="Scale τ" v={tau.toFixed(3)} />
+        <TermRow k="Uncertainty δ" v={del.toFixed(2)} />
+        <TermRow k="View 1" v={(q1 * 100).toFixed(1) + '%'} />
+        <TermRow k="View 2" v={(q2 * 100).toFixed(1) + '%'} />
+        <TermRow k="Metric" v={s.metric === 'wgt' ? 'Weights' : 'Returns'} />
+      </TermGroup>
+
+      <TermGroup title="Equilibrium Pi (EQM)">
+        {BL_NAMES.map((name, i) => (
+          <TermRow key={`eq${i}`} k={name} v={signPct(stats.eq[i])} tone="price" />
+        ))}
+      </TermGroup>
+
+      <TermGroup title="Posterior">
+        {BL_NAMES.map((name, i) => (
+          <TermRow key={`po${i}`} k={name} v={signPct(stats.po[i])} tone={stats.po[i] < 0 ? 'neg' : 'price'} />
+        ))}
+        <TermRow k="Post Vol Equity" v={(stats.pv0 * 100).toFixed(1) + '%'} />
+        <TermRow k="Post Vol Crypto" v={(stats.pv3 * 100).toFixed(1) + '%'} />
+      </TermGroup>
+
+      <TermGroup title="View Calibration">
+        <TermRow k="View 1 Match" v={signPct(stats.res1)} tone={Math.abs(stats.res1) < 1e-3 ? 'price' : 'default'} />
+        <TermRow k="View 2 Match" v={signPct(stats.res2)} tone={Math.abs(stats.res2) < 1e-3 ? 'price' : 'default'} />
+      </TermGroup>
+
+      {s.view === 'tilt' && (
+        <TermGroup title="Tilt (Post − EQM)">
+          <TermRow k="Max Tilt" v={signPct(Math.max(...tilt.tilt.map(Math.abs)))} />
+          <TermRow k="Σ|Tilt|" v={signPct(tilt.tilt.reduce((a, b) => a + Math.abs(b), 0))} />
+          {BL_NAMES.map((name, i) => (
+            <TermRow key={name} k={name} v={signPct(tilt.tilt[i])} tone={tilt.tilt[i] < 0 ? 'neg' : 'price'} />
+          ))}
+        </TermGroup>
       )}
     </>
   )

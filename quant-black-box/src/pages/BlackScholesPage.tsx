@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Line, LineChart, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -116,7 +116,7 @@ export default function BlackScholesPage() {
     s.set({ S0: params.S0, sig: params.sig })
   }, [s.set])
 
-  const metricsContent = (
+  const metricsContent = mobile ? (
     <StatList mobile={mobile}>
       <Stat k="ATM Price (1Y)" v={money(atmPrice)} tone="price" mobile={mobile} />
       <Stat k="Spot" v={money(S0)} mobile={mobile} />
@@ -130,6 +130,31 @@ export default function BlackScholesPage() {
       <Stat k="Theta" v={(m ? m.theta : 0).toFixed(3)} mobile={mobile} />
       <Stat k="Rho" v={(m ? m.rho : 0).toFixed(3)} mobile={mobile} />
     </StatList>
+  ) : (
+    <>
+      <TermGroup title="Pricing">
+        <TermRow k="ATM Price (1Y)" v={money(atmPrice)} tone="price" />
+        <TermRow k="Call" v={money(m ? m.C : 0)} tone="price" />
+        <TermRow k="Put" v={money(m ? m.P : 0)} tone="price" />
+      </TermGroup>
+
+      <TermGroup title="Run Config">
+        <TermRow k="Spot S" v={money(S0)} />
+        <TermRow k="Strike K" v={money(K)} />
+        <TermRow k="Type" v={s.opt === 'put' ? 'Put' : 'Call'} />
+        <TermRow k="Horizon" v={`${T.toFixed(2)} yr`} />
+        <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
+        <TermRow k="Volatility σ" v={`${s.sig.toFixed(1)}%`} />
+      </TermGroup>
+
+      <TermGroup title="Greeks">
+        <TermRow k="Delta" v={(m ? delta : 0).toFixed(4)} />
+        <TermRow k="Gamma" v={(m ? m.gamma : 0).toFixed(4)} />
+        <TermRow k="Vega" v={(m ? m.vega : 0).toFixed(3)} />
+        <TermRow k="Theta" v={(m ? m.theta : 0).toFixed(3)} />
+        <TermRow k="Rho" v={(m ? m.rho : 0).toFixed(3)} />
+      </TermGroup>
+    </>
   )
 
   const paramsContent = (

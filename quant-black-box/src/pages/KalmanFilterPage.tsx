@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
 import RightSidebar from '../components/RightSidebar'
@@ -298,7 +298,7 @@ export default function KalmanFilterPage() {
 
   const lastTick = history.length > 0 ? history[history.length - 1] : null
 
-  const metricsContent = (
+  const metricsContent = mobile ? (
     <StatList mobile={mobile}>
       <Stat k="KALMAN GAIN" v={lastTick ? (lastTick.kalmanGain[0]?.[0] ?? 0).toFixed(3) : '—'} tone="price" mobile={mobile} />
       <Stat k="INNOVATION" v={lastTick && tick > 0 ? lastTick.innovation[0]?.toFixed(4) ?? '—' : '—'} mobile={mobile} />
@@ -310,6 +310,35 @@ export default function KalmanFilterPage() {
       <Stat k="Q (PROC)" v={s.Q.toFixed(4)} mobile={mobile} />
       <Stat k="R (OBS)" v={s.R.toFixed(4)} mobile={mobile} />
     </StatList>
+  ) : (
+    <>
+      <TermGroup title="Filter Output">
+        <TermRow k="Kalman Gain" v={lastTick ? (lastTick.kalmanGain[0]?.[0] ?? 0).toFixed(3) : '—'} tone="price" />
+        <TermRow k="Innovation" v={lastTick && tick > 0 ? lastTick.innovation[0]?.toFixed(4) ?? '—' : '—'} />
+        <TermRow k="CI 2-sigma" v={lastTick ? '+/- ' + (lastTick.stateCovDiag[0]?.toFixed(2) ?? '-') : '-'} />
+        <TermRow k="Trace(P)" v={lastTick ? lastTick.traceP.toFixed(4) : '—'} />
+      </TermGroup>
+
+      <TermGroup title="State Estimate">
+        <TermRow k="Filtered" v={lastTick ? lastTick.filteredState[0]?.toFixed(2) : '—'} tone="price" />
+        <TermRow k="True State" v={lastTick ? lastTick.trueState[0]?.toFixed(2) : '—'} />
+        <TermRow k="Observation" v={lastTick ? lastTick.observation[0]?.toFixed(2) : '—'} />
+        <TermRow
+          k="Est. Error"
+          v={lastTick ? ((lastTick.filteredState[0] ?? 0) - (lastTick.trueState[0] ?? 0)).toFixed(2) : '—'}
+          tone={lastTick && Math.abs((lastTick.filteredState[0] ?? 0) - (lastTick.trueState[0] ?? 0)) > 1 ? 'neg' : 'default'}
+        />
+      </TermGroup>
+
+      <TermGroup title="Run Config">
+        <TermRow k="Step" v={`${tick} / ${fullHistory.length}`} />
+        <TermRow k="Q (proc)" v={s.Q.toFixed(4)} />
+        <TermRow k="R (obs)" v={s.R.toFixed(4)} />
+        <TermRow k="Dims n/m" v={`${s.n} / ${s.m}`} />
+        <TermRow k="Days" v={String(s.nDays)} />
+        <TermRow k="Seed" v={String(s.seed)} />
+      </TermGroup>
+    </>
   )
 
   const paramsContent = (

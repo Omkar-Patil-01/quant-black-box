@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -88,7 +88,7 @@ export default function AptPage() {
     })
   }, [s.r, s.lam, s.lams, s.lamv, s.b3, s.al, s.metric])
 
-  const metricsContent = (
+  const metricsContent = mobile ? (
     <StatList mobile={mobile}>
       <Stat k="Risk-Free" v={pct(params.r, 2)} tone="price" mobile={mobile} />
       <Stat k="Mkt Premium" v={pct(params.lam, 2)} tone="price" mobile={mobile} />
@@ -101,6 +101,27 @@ export default function AptPage() {
       <Stat k="Zero-Beta" v={pct(stats.zb)} mobile={mobile} />
       <Stat k="Slope ∂E/∂βM" v={'+' + (params.lam * 100).toFixed(2) + '%'} mobile={mobile} />
     </StatList>
+  ) : (
+    <>
+      <TermGroup title="Factor Premia">
+        <TermRow k="Risk-Free" v={pct(params.r, 2)} tone="price" />
+        <TermRow k="Mkt Premium" v={pct(params.lam, 2)} tone="price" />
+        <TermRow k="Size Premium" v={pct(params.lams, 2)} tone="price" />
+        <TermRow k="Value Premium" v={pct(params.lamv, 2)} tone="price" />
+      </TermGroup>
+
+      <TermGroup title="Loadings & Alpha">
+        <TermRow k="Beta HML" v={params.b3.toFixed(2)} />
+        <TermRow k="Alpha" v={pct(params.al, 2)} tone="price" />
+      </TermGroup>
+
+      <TermGroup title="Model Output">
+        <TermRow k="Fair Return" v={pct(stats.fair)} tone="price" />
+        <TermRow k="Alpha-Adj" v={pct(stats.aadj)} tone="price" />
+        <TermRow k="Zero-Beta" v={pct(stats.zb)} />
+        <TermRow k="Slope ∂E/∂βM" v={'+' + (params.lam * 100).toFixed(2) + '%'} />
+      </TermGroup>
+    </>
   )
 
   const paramsContent = (
