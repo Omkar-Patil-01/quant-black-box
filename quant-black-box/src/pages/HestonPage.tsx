@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
 import SurfaceChart from '../components/SurfaceChart'
@@ -205,7 +205,7 @@ export default function HestonPage() {
     s.set({ S0: params.S0, v0: params.sig })
   }, [s.set])
 
-  const metricsContent = (
+  const metricsContent = mobile ? (
     <>
       <StatList mobile={mobile}>
         <Stat k="ATM Call (1Y)" v={money(stats.atm)} tone="price" mobile={mobile} />
@@ -236,6 +236,50 @@ export default function HestonPage() {
           </StatList>
         </div>
       )}
+    </>
+  ) : (
+    <>
+      <TermGroup title="Pricing">
+        <TermRow k="ATM Call (1Y)" v={money(stats.atm)} tone="price" />
+        <TermRow k="Call" v={money(stats.call)} tone="price" />
+        <TermRow k="Put" v={money(stats.put)} tone="price" />
+        <TermRow k="Forward Vol" v={(stats.fvol * 100).toFixed(1) + '%'} />
+        <TermRow k="Feller" v={stats.feller.toFixed(2) + (stats.feller > 1 ? ' ✓' : ' ⚠')} />
+      </TermGroup>
+
+      <TermGroup title="Greeks">
+        <TermRow k="Delta" v={stats.delta.toFixed(4)} />
+        <TermRow k="Gamma" v={stats.gamma.toFixed(4)} />
+        <TermRow k="Vega" v={stats.vega.toFixed(3)} />
+        <TermRow k="Theta" v={stats.theta.toFixed(3)} />
+        <TermRow k="Rho" v={stats.rho.toFixed(3)} />
+      </TermGroup>
+
+      <TermGroup title="Run Config">
+        <TermRow k="Spot S₀" v={money(S0)} />
+        <TermRow k="Strike K" v={money(K)} />
+        <TermRow k="Type" v={s.opt === 'put' ? 'Put' : 'Call'} />
+        <TermRow k="Horizon" v={`${T.toFixed(2)} yr`} />
+        <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
+        <TermRow k="Init vol v₀" v={`${s.v0.toFixed(1)}%`} />
+        <TermRow k="Mean rev κ" v={params.kappa.toFixed(2)} />
+        <TermRow k="Long vol θ" v={`${s.theta.toFixed(1)}%`} />
+        <TermRow k="Vol-of-vol σᵥ" v={`${s.sigv.toFixed(1)}%`} />
+        <TermRow k="Correlation ρ" v={params.rho.toFixed(2)} />
+        <TermRow k="Paths N" v={String(sim.N)} />
+        <TermRow k="Seed" v={String(s.seed)} />
+      </TermGroup>
+
+      <TermGroup title={`Terminal Distribution (${sim.N} paths)`}>
+        <TermRow k="Mean" v={money(simStats.mean)} tone="price" />
+        <TermRow k="Median" v={money(simStats.median)} tone="price" />
+        <TermRow k="VaR 5%" v={money(simStats.var5)} tone="neg" />
+        <TermRow k="P95" v={money(simStats.p95)} tone="price" />
+        <TermRow k="P(loss)" v={(simStats.losses * 100).toFixed(1) + '%'} tone="neg" />
+        <TermRow k="CI 95" v={`±${money(simStats.ci95)}`} />
+        <TermRow k="E[VOL]" v={(simStats.eVol * 100).toFixed(1) + '%'} />
+        <TermRow k="Max DD" v={pct(simStats.maxDD)} tone="neg" />
+      </TermGroup>
     </>
   )
 
