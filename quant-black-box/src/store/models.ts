@@ -123,8 +123,8 @@ export type McMetric = 'price' | 'ret' | 'pl'
 
 export interface McState extends DisplayState {
   metric: McMetric
-  /** 2D path chart (default) or the legacy 3D surface */
-  view: 'paths' | 'surface'
+  /** 2D path chart (default), the legacy 3D surface, or the path-mill figure */
+  view: 'paths' | 'surface' | 'explainer'
   /** capital behind the P&L ($) view — a display scaler, never simulated */
   investment: number
   /** target return in %, drives the +20% line and P(target) */

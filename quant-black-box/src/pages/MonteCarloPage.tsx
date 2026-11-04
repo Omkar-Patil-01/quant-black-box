@@ -5,6 +5,7 @@ import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, Bottom
 import { Accordion, BarStat, Chip, Field, Hint, IconBtn, ParamLabel, Seg, Select, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
+import { McMillFigure } from '../components/anatomy/mc-mill/figure'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -106,6 +107,20 @@ export default function MonteCarloPage() {
         s.metric === 'price' ? money(v, 0) : s.metric === 'ret' ? pct(v, 0) : usd(v, true),
     [s.metric],
   )
+
+  // path-mill figure: prices read through the active metric, sd as a ± span
+  const millFmt = useCallback((price: number) => yFmt(toView(price)), [yFmt, toView])
+  const millDelta = useCallback(
+    (delta: number) => {
+      const span = toView(S0 + delta) - toView(S0)
+      if (s.metric === 'pl') return usd(span, false)
+      if (s.metric === 'ret') return (span * 100).toFixed(0) + '%'
+      return money(span, 0)
+    },
+    [toView, S0, s.metric],
+  )
+  const metricLabel = s.metric === 'price' ? 'PRICE' : s.metric === 'ret' ? 'RETURN' : 'P&L ($)'
+  const millConfig = `μ ${s.mu.toFixed(1)}% · σ ${s.sig.toFixed(1)}% · N ${npaths} · seed ${s.seed}`
 
   const surface = useMemo(() => {
     const points: SurfacePoint[] = []
@@ -301,7 +316,7 @@ export default function MonteCarloPage() {
         title="PARAMETERS"
         summary={
           <>
-            <Chip k="Mode" v={s.view === 'surface' ? '3D' : '2D'} />
+            <Chip k="Mode" v={s.view === 'surface' ? '3D' : s.view === 'explainer' ? 'Mill' : '2D'} />
             <Chip k="View" v={s.metric === 'price' ? 'Price' : s.metric === 'ret' ? 'P&L %' : 'P&L $'} />
             <Chip k="Inv" v={money(s.investment, 0)} />
             <Chip k="Tgt" v={`${s.target}%`} />
@@ -314,9 +329,10 @@ export default function MonteCarloPage() {
           options={[
             { value: 'paths', label: '2D PATHS' },
             { value: 'surface', label: '3D SURFACE' },
+            { value: 'explainer', label: 'PATH MILL' },
           ]}
           value={s.view}
-          onChange={(v) => s.set({ view: v as 'paths' | 'surface' })}
+          onChange={(v) => s.set({ view: v as 'paths' | 'surface' | 'explainer' })}
         />
         <ParamLabel>View Mode</ParamLabel>
         <Seg
@@ -404,13 +420,13 @@ export default function MonteCarloPage() {
         resetToken={resetToken}
         onZoom={setZoomPct}
       />
-    ) : (
+    ) : s.view === 'surface' ? (
       <SurfaceChart
         points={surface.points}
         dataShape={surface.shape}
         xName="TIME (YRS)"
         yName="PATH"
-        zName={s.metric === 'price' ? 'PRICE' : s.metric === 'ret' ? 'RETURN' : 'P&L ($)'}
+        zName={metricLabel}
         xRange={surface.xRange}
         yRange={surface.yRange}
         scheme={s.scheme}
@@ -421,12 +437,23 @@ export default function MonteCarloPage() {
         resetToken={resetToken}
         mobile={mobile}
       />
+    ) : (
+      <McMillFigure
+        sim={sim}
+        stats={stats}
+        fmt={millFmt}
+        fmtDelta={millDelta}
+        config={millConfig}
+        metricLabel={metricLabel}
+      />
     )
 
   const chartHint =
     s.view === 'paths'
       ? `Scroll: Zoom · Drag: Pan · ${zoomPct}%`
-      : 'Drag to rotate · Scroll to zoom · Right-click to pan · Paths sorted by terminal · [B] left · [R] right'
+      : s.view === 'surface'
+        ? 'Drag to rotate · Scroll to zoom · Right-click to pan · Paths sorted by terminal · [B] left · [R] right'
+        : 'Grain height = bin count · Threads = sampled paths · [B] left · [R] right'
 
   const toolbar = s.view === 'paths' && !mobile ? (
     <div className="flex gap-1.5">

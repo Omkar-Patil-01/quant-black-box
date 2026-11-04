@@ -1,0 +1,59 @@
+/* The figure fills the chart canvas: plate flexes, the svg letterboxes inside it.
+   Bottom padding keeps the caption clear of the floating Hint line. */
+.mcmill {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 30px;
+}
+.mcmill .iso-figure {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mcmill .iso-plate {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mcmill .iso-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mcmill .iso-svg {
+  width: 100%;
+  height: 100%;
+}
+.mcmill .iso-legend {
+  padding: 10px 24px 0;
+}
+.mcmill-ball {
+  fill: var(--anatomy-green);
+  stroke: none;
+  opacity: 0.9;
+}
+/* threads sit visually behind the machine's structure */
+.mcmill .iso-line[data-tone="green"] {
+  opacity: 0.8;
+}
+.mcmill-vent {
+  fill: var(--anatomy-shade-0);
+  stroke: none;
+}
+@media (max-width: 560px) {
+  /* the fixed bottom dock is ~55px — keep the caption above it */
+  .mcmill {
+    padding-bottom: 64px;
+  }
+  .mcmill .iso-legend {
+    padding: 8px 12px 0;
+  }
+}
