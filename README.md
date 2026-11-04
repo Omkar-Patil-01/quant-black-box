@@ -98,3 +98,7 @@ quant-black-box/
 Vercel hosts both the SPA and the API from this repo. The functions need `LSE_API_KEY` and `DATABASE_URL` set for **Production**.
 
 Editing an environment variable does not affect an already-deployed build — Vercel snapshots env at build time, and inlined `VITE_*` values are baked into the bundle. **Redeploy after changing any env var**, or the running function and the shipped JavaScript will silently keep the old value.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
