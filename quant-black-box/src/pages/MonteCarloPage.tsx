@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Maximize2, Play, ZoomIn, ZoomOut } from 'lucide-react'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, BarStat, Chip, Field, Hint, IconBtn, ParamLabel, Seg, Select, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Field, Hint, IconBtn, OutputCard, ParamLabel, Seg, Select, Slider, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
+import FanChart from '../components/FanChart'
 import { McMillFigure } from '../components/anatomy/mc-mill/figure'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
@@ -13,8 +14,9 @@ import FormulaModal from '../components/FormulaModal'
 import LiveMarketIngestion from '../components/LiveMarketIngestion'
 import RightSidebar from '../components/RightSidebar'
 import { MC_FORMULAS } from '../lib/formulas'
-import { MC_STEPS, mcStats, metricVal, simulateMc } from '../lib/math'
+import { MC_STEPS, mcStats, metricVal, simulateMc, sortedQuantile, sortedTailMean } from '../lib/math'
 import { money, pct } from '../lib/format'
+import { InlineMath } from 'react-katex'
 import { useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
@@ -149,6 +151,30 @@ export default function MonteCarloPage() {
   const sdPnl = scale * stats.sd
   const sr = (mu - s.r / 100) / sig
 
+  // output-panel detail: real quantiles off the sorted terminal array
+  const cvar5 = useMemo(() => sortedTailMean(sim.term, 0.05), [sim])
+  const p25 = useMemo(() => sortedQuantile(sim.term, 0.25), [sim])
+  const p75 = useMemo(() => sortedQuantile(sim.term, 0.75), [sim])
+  const avgDD = useMemo(() => sim.dd.reduce((a, b) => a + b, 0) / sim.N, [sim])
+  // percentile-fan series: real paths at fixed terminal percentiles, in display units
+  const fan = useMemo(() => {
+    const pick = (p: number) =>
+      sim.sorted[Math.min(sim.N - 1, Math.floor((sim.N - 1) * p))].map(toView)
+    return [
+      { name: '95TH BULL', data: pick(0.95), color: '#22d3ee' },
+      { name: '50TH MEDIAN', data: pick(0.5), color: '#10b981' },
+      { name: '5TH BEAR', data: pick(0.05), color: '#dc2626' },
+    ]
+  }, [sim, toView])
+  // profile label from capital-preservation probability: ≥90% SECURE, ≥60% BALANCED, else AT-RISK
+  const profile = pProfit >= 0.9 ? 'SECURE' : pProfit >= 0.6 ? 'BALANCED' : 'AT-RISK'
+  const profileCls =
+    profile === 'SECURE'
+      ? 'border-green/40 bg-green/10 text-green'
+      : profile === 'BALANCED'
+        ? 'border-accent-mc/40 bg-accent-mc/10 text-accent-mc'
+        : 'border-red/40 bg-red/10 text-red'
+
   const top = useMemo(
     () =>
       [1, 2, 3].map((rank) => {
@@ -230,35 +256,78 @@ export default function MonteCarloPage() {
     </div>
   )
 
-  const metricsContent = mobile ? (
-    <StatList mobile>
-      <BarStat k="P(PROFIT)" value={(pProfit * 100).toFixed(1) + '%'} ratio={pProfit} tone="green" mobile={mobile} />
-      <BarStat k={`P(+${s.target}%)`} value={(pTarget * 100).toFixed(1) + '%'} ratio={pTarget} tone="amber" mobile={mobile} />
-      <Stat k="E[PORTFOLIO]" v={usd(ePortfolio)} tone="price" mobile={mobile} />
-      <Stat k="VaR 5%" v={usd(var5Pnl)} tone="neg" mobile={mobile} />
-      <Stat k="Median" v={usd(medianPnl, true)} tone="price" mobile={mobile} />
-      <Stat k="95th" v={usd(p95Pnl, true)} tone="price" mobile={mobile} />
-      <Stat k="Std Dev" v={usd(sdPnl)} mobile={mobile} />
-      <Stat k="DaR 95%" v={pct(stats.dd95)} tone="neg" mobile={mobile} />
-      <Stat k="Max DD" v={pct(stats.maxDD)} tone="neg" mobile={mobile} />
-      <Stat k="Skew" v={stats.skew.toFixed(2)} mobile={mobile} />
-      <Stat k="Kurtosis" v={stats.kurt.toFixed(2)} mobile={mobile} />
-      <Stat k="E[U(W)] CRRA" v={stats.util.toFixed(3)} mobile={mobile} />
-    </StatList>
-  ) : (
-    <>
-      <TermGroup title="Run Config">
-        <TermRow k="Spot S₀" v={money(S0)} />
-        <TermRow k="Drift μ" v={`${s.mu.toFixed(1)}%`} />
-        <TermRow k="Vol σ" v={`${s.sig.toFixed(1)}%`} />
-        <TermRow k="Paths N" v={String(npaths)} />
-        <TermRow k="Horizon" v={`${T.toFixed(1)} yr`} />
-        <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
-        <TermRow k="Risk aversion γ" v={gam.toFixed(2)} />
-        <TermRow k="Investment" v={money(s.investment, 0)} />
-        <TermRow k="Target" v={`${s.target}%`} />
-        <TermRow k="Seed" v={String(s.seed)} />
-      </TermGroup>
+  const metricsContent = (
+    <div className="space-y-2">
+      {/* model header: the SDE itself + the run's fixed parameters */}
+      <div className="border border-border bg-[#09090b] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <span className="text-[12px] leading-none text-white">
+            <InlineMath math={String.raw`dS_t = \mu S_t\,dt + \sigma S_t\,dW_t`} />
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-label">
+            GBM SDE · Δt = {(T / MC_STEPS).toFixed(3)} YR · N = {npaths} PATHS · SEED {s.seed}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+        <OutputCard title="Run Config">
+          <TermRow k="Spot S₀" v={money(S0)} />
+          <TermRow k="Drift μ" v={`${s.mu.toFixed(1)}%`} />
+          <TermRow k="Vol σ" v={`${s.sig.toFixed(1)}%`} />
+          <TermRow k="Paths N" v={String(npaths)} />
+          <TermRow k="Horizon" v={`${T.toFixed(1)} yr`} />
+          <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
+          <TermRow k="Risk aversion γ" v={gam.toFixed(2)} />
+          <TermRow k="Investment" v={money(s.investment, 0)} />
+          <TermRow k="Target" v={`${s.target}%`} />
+          <TermRow k="Seed" v={String(s.seed)} />
+        </OutputCard>
+
+        <div className="space-y-2">
+          <OutputCard title={`Terminal ${metricLabel} — Median Path`}>
+            <div className="py-1 text-center">
+              <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-label">Median (50th)</div>
+              <div className="mt-0.5 font-mono text-[26px] font-bold tabular-nums text-green">
+                {yFmt(toView(stats.median))}
+              </div>
+              <div className="mt-1.5 flex justify-center gap-8">
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">95th (Bull)</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-white">
+                    {yFmt(toView(stats.p95))}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">5th (Bear)</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-red">
+                    {yFmt(toView(stats.var5))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </OutputCard>
+
+          <OutputCard title="Path-Dependent Downside Diagnostics">
+            <TermRow k="Avg max drawdown" v={pct(avgDD)} tone="neg" />
+            <TermRow k="Capital preservation" v={(pProfit * 100).toFixed(1) + '%'} bar={pProfit} />
+            <TermRow k="Initial capital base" v={usd(s.investment)} />
+          </OutputCard>
+
+          <div
+            className={`border px-3 py-2 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.16em] ${profileCls}`}
+          >
+            Probabilistic future profile: {profile}
+          </div>
+        </div>
+
+        <OutputCard title="Percentile Fan — Terminal 5th / 50th / 95th">
+          <FanChart series={fan} T={sim.T} yFmt={yFmt} />
+          <p className="mt-1 font-mono text-[8.5px] leading-relaxed text-label">
+            Bands are real simulated paths at the 5th, 50th and 95th terminal percentile — no fitted curves.
+          </p>
+        </OutputCard>
+      </div>
 
       <TermGroup title="Terminal Distribution">
         <TermRow k="Mean" v={money(stats.mean)} tone="price" />
@@ -267,6 +336,9 @@ export default function MonteCarloPage() {
         <TermRow k="Min" v={money(stats.min)} tone="neg" />
         <TermRow k="Max" v={money(stats.max)} tone="price" />
         <TermRow k="VaR 5%" v={money(stats.var5)} tone="neg" />
+        <TermRow k="CVaR 5%" v={money(cvar5)} tone="neg" />
+        <TermRow k="P25" v={money(p25)} />
+        <TermRow k="P75" v={money(p75)} />
         <TermRow k="P95" v={money(stats.p95)} />
         <TermRow k="CI 95" v={`±${money(stats.ci95)}`} />
         <TermRow k="Skew" v={stats.skew.toFixed(2)} />
@@ -298,7 +370,7 @@ export default function MonteCarloPage() {
       </TermGroup>
 
       {topPerformers}
-    </>
+    </div>
   )
 
   const horizonOptions = useMemo(() => {

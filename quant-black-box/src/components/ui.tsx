@@ -461,6 +461,28 @@ export function TermGroup({ title, children }: { title: string; children: ReactN
   )
 }
 
+/** Bordered output card: the section header above, framed. Rows stack in one column
+    so a card keeps its shape inside a narrow grid cell. */
+export function OutputCard({
+  title,
+  children,
+  className = '',
+}: {
+  title: string
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`border border-border bg-[#09090b] px-3 py-2 ${className}`}>
+      <div className="mb-1 flex items-center gap-2">
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white">{title}</span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+      {children}
+    </div>
+  )
+}
+
 /** Stat row with a probability bar — for P(success) / P(target). */
 export function BarStat({
   k,

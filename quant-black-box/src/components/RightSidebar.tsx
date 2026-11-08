@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import ScenarioPanel from './ScenarioPanel'
 import ScenarioCompare from './ScenarioCompare'
 import PresetManager from './PresetManager'
@@ -22,6 +23,7 @@ interface RightSidebarProps {
 
 export default function RightSidebar({ metricsContent, scaleLabel, mobile }: RightSidebarProps) {
   const [tab, setTab] = useState<RightTab>('metrics')
+  const [expanded, setExpanded] = useState(false)
 
   if (mobile) {
     return (
@@ -66,7 +68,10 @@ export default function RightSidebar({ metricsContent, scaleLabel, mobile }: Rig
   }
 
   return (
-    <aside className="flex h-[32%] w-full shrink-0 flex-col overflow-hidden border-t border-border bg-black">
+    <aside
+      data-output-panel
+      className={`flex ${expanded ? 'h-[68%]' : 'h-[32%]'} w-full shrink-0 flex-col overflow-hidden border-t border-border bg-black`}
+    >
       <div className="flex shrink-0 border-b border-line">
         {TABS.map((t) => (
           <button
@@ -86,6 +91,14 @@ export default function RightSidebar({ metricsContent, scaleLabel, mobile }: Rig
             )}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          title={expanded ? 'Collapse output' : 'Expand output'}
+          className="flex w-9 shrink-0 cursor-pointer items-center justify-center border-l border-line text-label transition-colors hover:text-white"
+        >
+          {expanded ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

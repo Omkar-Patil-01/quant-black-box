@@ -579,6 +579,18 @@ export function mcStats(sim: McSimulation, gam: number): McStats {
   }
 }
 
+/** Nearest-rank quantile over a terminal array sorted ascending (as `McSimulation.term` is). */
+export const sortedQuantile = (sorted: number[], p: number): number =>
+  sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))]
+
+/** Expected shortfall: mean of the worst `tail` fraction of a sorted-ascending array. */
+export const sortedTailMean = (sorted: number[], tail: number): number => {
+  const k = Math.max(1, Math.floor(sorted.length * tail))
+  let sum = 0
+  for (let i = 0; i < k; i++) sum += sorted[i]
+  return sum / k
+}
+
 /* ═════════ APT ENGINE ═════════ */
 
 export interface AptParams {

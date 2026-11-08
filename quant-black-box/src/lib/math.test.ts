@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aptRet, blSolve, bs, hestonPrice, hestonSimStats, kalmanFilter, mcStats, normCdf, simulateHeston, simulateMc, HESTON_STEPS } from './math'
+import { aptRet, blSolve, bs, hestonPrice, hestonSimStats, kalmanFilter, mcStats, normCdf, simulateHeston, simulateMc, sortedQuantile, sortedTailMean, HESTON_STEPS } from './math'
 describe('normCdf', () => {
   it('matches known values', () => {
     expect(normCdf(0)).toBeCloseTo(0.5, 6)
@@ -262,5 +262,20 @@ describe('simulateHeston paths', () => {
     expect(st.losses).toBeLessThanOrEqual(1)
     expect(st.maxDD).toBeLessThanOrEqual(0)
     expect(st.eVol).toBeGreaterThan(0)
+  })
+})
+
+describe('terminal quantile helpers', () => {
+  const asc = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  it('sortedQuantile picks the nearest rank', () => {
+    expect(sortedQuantile(asc, 0.5)).toBe(6) // floor(10 × .5) = 5 → 6th element
+    expect(sortedQuantile(asc, 0.25)).toBe(3)
+    expect(sortedQuantile(asc, 0.95)).toBe(10)
+  })
+
+  it('sortedTailMean averages exactly the worst tail', () => {
+    expect(sortedTailMean(asc, 0.2)).toBeCloseTo(1.5) // mean(1, 2)
+    expect(sortedTailMean(asc, 0.05)).toBe(1) // floor(10 × .05) = 1 → worst path only
   })
 })
