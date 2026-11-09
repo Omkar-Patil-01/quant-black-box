@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, OutputCard, ParamLabel, Seg, Slider, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import DisplayControls from '../components/DisplayControls'
 import FormulaModal from '../components/FormulaModal'
 import RightSidebar from '../components/RightSidebar'
 import { KF_FORMULAS } from '../lib/formulas'
+import { InlineMath } from 'react-katex'
 import { kalmanFilter } from '../lib/math'
 import type { KfParams, KfTickResult } from '../lib/math'
 import { fetchKf } from '../lib/kfApi'
@@ -298,47 +299,104 @@ export default function KalmanFilterPage() {
 
   const lastTick = history.length > 0 ? history[history.length - 1] : null
 
-  const metricsContent = mobile ? (
-    <StatList mobile={mobile}>
-      <Stat k="KALMAN GAIN" v={lastTick ? (lastTick.kalmanGain[0]?.[0] ?? 0).toFixed(3) : '—'} tone="price" mobile={mobile} />
-      <Stat k="INNOVATION" v={lastTick && tick > 0 ? lastTick.innovation[0]?.toFixed(4) ?? '—' : '—'} mobile={mobile} />
-      <Stat k="CI 2-sigma" v={lastTick ? '+/- ' + (lastTick.stateCovDiag[0]?.toFixed(2) ?? '-') : '-'} mobile={mobile} />
-      <Stat k="TRACE(P)" v={lastTick ? lastTick.traceP.toFixed(4) : '—'} mobile={mobile} />
-      <Stat k="FILTERED" v={lastTick ? lastTick.filteredState[0]?.toFixed(2) : '—'} tone="price" mobile={mobile} />
-      <Stat k="TRUE STATE" v={lastTick ? lastTick.trueState[0]?.toFixed(2) : '—'} mobile={mobile} />
-      <Stat k="STEP" v={`${tick} / ${fullHistory.length}`} mobile={mobile} />
-      <Stat k="Q (PROC)" v={s.Q.toFixed(4)} mobile={mobile} />
-      <Stat k="R (OBS)" v={s.R.toFixed(4)} mobile={mobile} />
-    </StatList>
-  ) : (
-    <>
+  // est. error vs the 2σ band (stateCovDiag already = 2·sqrt(P)):
+  // |err| ≤ 2σ → TRACKING, ≤ 2×2σ → WATCH, else DIVERGED
+  const estErr = lastTick ? (lastTick.filteredState[0] ?? 0) - (lastTick.trueState[0] ?? 0) : 0
+  const band2s = lastTick ? lastTick.stateCovDiag[0] ?? 0 : 0
+  const profile = !lastTick ? 'NO DATA' : Math.abs(estErr) <= band2s ? 'TRACKING' : Math.abs(estErr) <= 2 * band2s ? 'WATCH' : 'DIVERGED'
+  const profileCls =
+    profile === 'TRACKING'
+      ? 'border-green/40 bg-green/10 text-green'
+      : profile === 'WATCH'
+        ? 'border-accent-mc/40 bg-accent-mc/10 text-accent-mc'
+        : 'border-red/40 bg-red/10 text-red'
+
+  const metricsContent = (
+    <div className="space-y-2">
+      {/* model header: the state-space model + the run's fixed parameters */}
+      <div className="border border-border bg-[#09090b] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <span className="text-[12px] leading-none text-white">
+            <InlineMath math={String.raw`\mathbf{x}_t = \mathbf{F}\mathbf{x}_{t-1} + \mathbf{w}_t`} />
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-label">
+            KALMAN FILTER · Q {s.Q.toFixed(4)} · R {s.R.toFixed(4)} · n/m {s.n}/{s.m} · STEP {tick}/
+            {fullHistory.length}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+        <OutputCard title="Run Config">
+          <TermRow k="Step" v={`${tick} / ${fullHistory.length}`} />
+          <TermRow k="Q (proc)" v={s.Q.toFixed(4)} />
+          <TermRow k="R (obs)" v={s.R.toFixed(4)} />
+          <TermRow k="Dims n/m" v={`${s.n} / ${s.m}`} />
+          <TermRow k="Days" v={String(s.nDays)} />
+          <TermRow k="Seed" v={String(s.seed)} />
+        </OutputCard>
+
+        <div className="space-y-2">
+          <OutputCard title="Filtered State — Step Estimate">
+            <div className="py-1 text-center">
+              <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-label">Filtered</div>
+              <div className="mt-0.5 font-mono text-[26px] font-bold tabular-nums text-green">
+                {lastTick ? (lastTick.filteredState[0]?.toFixed(2) ?? '—') : '—'}
+              </div>
+              <div className="mt-1.5 flex justify-center gap-8">
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">True State</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-white">
+                    {lastTick ? (lastTick.trueState[0]?.toFixed(2) ?? '—') : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">Est. Error</div>
+                  <div
+                    className={`font-mono text-[14px] font-semibold tabular-nums ${
+                      Math.abs(estErr) > band2s ? 'text-red' : 'text-white'
+                    }`}
+                  >
+                    {lastTick ? estErr.toFixed(2) : '—'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </OutputCard>
+
+          <OutputCard title="Filter Diagnostics">
+            <TermRow
+              k="Kalman Gain"
+              v={lastTick ? (lastTick.kalmanGain[0]?.[0] ?? 0).toFixed(3) : '—'}
+              tone="price"
+            />
+            <TermRow k="Innovation" v={lastTick && tick > 0 ? lastTick.innovation[0]?.toFixed(4) ?? '—' : '—'} />
+            <TermRow k="Trace(P)" v={lastTick ? lastTick.traceP.toFixed(4) : '—'} />
+            <TermRow k="CI 2-sigma" v={lastTick ? '+/- ' + (lastTick.stateCovDiag[0]?.toFixed(2) ?? '-') : '-'} />
+          </OutputCard>
+
+          <div
+            className={`border px-3 py-2 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.16em] ${profileCls}`}
+          >
+            Filter profile: {profile}
+          </div>
+        </div>
+
+        <OutputCard title="State Estimate">
+          <TermRow k="Filtered" v={lastTick ? lastTick.filteredState[0]?.toFixed(2) : '—'} tone="price" />
+          <TermRow k="True State" v={lastTick ? lastTick.trueState[0]?.toFixed(2) : '—'} />
+          <TermRow k="Observation" v={lastTick ? lastTick.observation[0]?.toFixed(2) : '—'} />
+          <TermRow k="Est. Error" v={lastTick ? estErr.toFixed(2) : '—'} tone={Math.abs(estErr) > band2s ? 'neg' : 'default'} />
+        </OutputCard>
+      </div>
+
       <TermGroup title="Filter Output">
         <TermRow k="Kalman Gain" v={lastTick ? (lastTick.kalmanGain[0]?.[0] ?? 0).toFixed(3) : '—'} tone="price" />
         <TermRow k="Innovation" v={lastTick && tick > 0 ? lastTick.innovation[0]?.toFixed(4) ?? '—' : '—'} />
         <TermRow k="CI 2-sigma" v={lastTick ? '+/- ' + (lastTick.stateCovDiag[0]?.toFixed(2) ?? '-') : '-'} />
         <TermRow k="Trace(P)" v={lastTick ? lastTick.traceP.toFixed(4) : '—'} />
       </TermGroup>
-
-      <TermGroup title="State Estimate">
-        <TermRow k="Filtered" v={lastTick ? lastTick.filteredState[0]?.toFixed(2) : '—'} tone="price" />
-        <TermRow k="True State" v={lastTick ? lastTick.trueState[0]?.toFixed(2) : '—'} />
-        <TermRow k="Observation" v={lastTick ? lastTick.observation[0]?.toFixed(2) : '—'} />
-        <TermRow
-          k="Est. Error"
-          v={lastTick ? ((lastTick.filteredState[0] ?? 0) - (lastTick.trueState[0] ?? 0)).toFixed(2) : '—'}
-          tone={lastTick && Math.abs((lastTick.filteredState[0] ?? 0) - (lastTick.trueState[0] ?? 0)) > 1 ? 'neg' : 'default'}
-        />
-      </TermGroup>
-
-      <TermGroup title="Run Config">
-        <TermRow k="Step" v={`${tick} / ${fullHistory.length}`} />
-        <TermRow k="Q (proc)" v={s.Q.toFixed(4)} />
-        <TermRow k="R (obs)" v={s.R.toFixed(4)} />
-        <TermRow k="Dims n/m" v={`${s.n} / ${s.m}`} />
-        <TermRow k="Days" v={String(s.nDays)} />
-        <TermRow k="Seed" v={String(s.seed)} />
-      </TermGroup>
-    </>
+    </div>
   )
 
   const paramsContent = (
