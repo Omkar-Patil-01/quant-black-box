@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, OutputCard, ParamLabel, Seg, Select, Slider, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -11,6 +11,7 @@ import RightSidebar from '../components/RightSidebar'
 import { BL_FORMULAS } from '../lib/formulas'
 import { BL_NAMES, BL_WMKT, blSolve } from '../lib/math'
 import { signPct } from '../lib/format'
+import { InlineMath } from 'react-katex'
 import { useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
@@ -144,49 +145,105 @@ export default function BlackLittermanPage() {
     return row
   })
 
-  const metricsContent = mobile ? (
-    <>
-      <StatList mobile={mobile}>
-      {BL_NAMES.map((name, i) => (
-        <Stat key={`eq${i}`} k={`EQM ${name}`} v={signPct(stats.eq[i])} tone="price" mobile={mobile} />
-      ))}
-      {BL_NAMES.map((name, i) => (
-        <Stat key={`po${i}`} k={`Post ${name}`} v={signPct(stats.po[i])} tone={stats.po[i] < 0 ? 'neg' : 'price'} mobile={mobile} />
-      ))}
-      <Stat k="Post Vol Equity" v={(stats.pv0 * 100).toFixed(1) + '%'} mobile={mobile} />
-      <Stat k="Post Vol Crypto" v={(stats.pv3 * 100).toFixed(1) + '%'} mobile={mobile} />
-      <Stat k="View 1 Match" v={signPct(stats.res1)} tone={Math.abs(stats.res1) < 1e-3 ? 'price' : 'default'} mobile={mobile} />
-      <Stat k="View 2 Match" v={signPct(stats.res2)} tone={Math.abs(stats.res2) < 1e-3 ? 'price' : 'default'} mobile={mobile} />
-    </StatList>
-      {s.view === 'tilt' && (
-        <div className="border-t border-line px-3.5 pb-3.5 pt-3">
-          <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-label">TILT (POST − EQM)</div>
-          <StatList mobile={mobile}>
-            <Stat k="Max Tilt" v={signPct(Math.max(...tilt.tilt.map(Math.abs)))} mobile={mobile} />
-            <Stat k="Σ|Tilt|" v={signPct(tilt.tilt.reduce((a, b) => a + Math.abs(b), 0))} mobile={mobile} />
-            {BL_NAMES.map((name, i) => (
-              <Stat key={name} k={name} v={signPct(tilt.tilt[i])} tone={tilt.tilt[i] < 0 ? 'neg' : 'price'} mobile={mobile} />
-            ))}
-          </StatList>
-        </div>
-      )}
-    </>
-  ) : (
-    <>
-      <TermGroup title="Run Config">
-        <TermRow k="Confidence λ" v={lam.toFixed(2)} />
-        <TermRow k="Scale τ" v={tau.toFixed(3)} />
-        <TermRow k="Uncertainty δ" v={del.toFixed(2)} />
-        <TermRow k="View 1" v={(q1 * 100).toFixed(1) + '%'} />
-        <TermRow k="View 2" v={(q2 * 100).toFixed(1) + '%'} />
-        <TermRow k="Metric" v={s.metric === 'wgt' ? 'Weights' : 'Returns'} />
-      </TermGroup>
+  // output-panel detail: view-calibration status from the existing residual rule (|res| < 1e-3 = captured)
+  const tiltAbs = tilt.tilt.map(Math.abs)
+  const maxTilt = Math.max(...tiltAbs)
+  const sumTilt = tiltAbs.reduce((a, b) => a + b, 0)
+  const resOk = (r: number) => Math.abs(r) < 1e-3
+  const profile =
+    resOk(stats.res1) && resOk(stats.res2) ? 'CAPTURED' : resOk(stats.res1) || resOk(stats.res2) ? 'PARTIAL' : 'DIVERGED'
+  const profileCls =
+    profile === 'CAPTURED'
+      ? 'border-green/40 bg-green/10 text-green'
+      : profile === 'PARTIAL'
+        ? 'border-accent-mc/40 bg-accent-mc/10 text-accent-mc'
+        : 'border-red/40 bg-red/10 text-red'
 
-      <TermGroup title="Equilibrium Pi (EQM)">
-        {BL_NAMES.map((name, i) => (
-          <TermRow key={`eq${i}`} k={name} v={signPct(stats.eq[i])} tone="price" />
-        ))}
-      </TermGroup>
+  const metricsContent = (
+    <div className="space-y-2">
+      {/* model header: the posterior formula + the run's fixed parameters */}
+      <div className="border border-border bg-[#09090b] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <span className="text-[12px] leading-none text-white">
+            <InlineMath math={String.raw`\mu^{*} = \left[(\tau\Sigma)^{-1} + P^\top \Omega^{-1} P\right]^{-1} \left[(\tau\Sigma)^{-1} \Pi + P^\top \Omega^{-1} Q\right]`} />
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-label">
+            BL POSTERIOR · λ {lam.toFixed(2)} · τ {tau.toFixed(3)} · δ {del.toFixed(2)} ·{' '}
+            {s.src === 'views' ? 'VIEWS' : 'EQM'}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+        <OutputCard title="Run Config">
+          <TermRow k="Confidence λ" v={lam.toFixed(2)} />
+          <TermRow k="Scale τ" v={tau.toFixed(3)} />
+          <TermRow k="Uncertainty δ" v={del.toFixed(2)} />
+          <TermRow k="View 1" v={(q1 * 100).toFixed(1) + '%'} />
+          <TermRow k="View 2" v={(q2 * 100).toFixed(1) + '%'} />
+          <TermRow k="Metric" v={s.metric === 'wgt' ? 'Weights' : 'Returns'} />
+        </OutputCard>
+
+        <div className="space-y-2">
+          <OutputCard title="Posterior Equity — Views vs Equilibrium">
+            <div className="py-1 text-center">
+              <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-label">Posterior (EQUITY)</div>
+              <div
+                className={`mt-0.5 font-mono text-[26px] font-bold tabular-nums ${
+                  stats.po[0] < 0 ? 'text-red' : 'text-green'
+                }`}
+              >
+                {signPct(stats.po[0])}
+              </div>
+              <div className="mt-1.5 flex justify-center gap-8">
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">Equilibrium</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-white">
+                    {signPct(stats.eq[0])}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">Tilt</div>
+                  <div
+                    className={`font-mono text-[14px] font-semibold tabular-nums ${
+                      tilt.tilt[0] < 0 ? 'text-red' : 'text-green'
+                    }`}
+                  >
+                    {signPct(tilt.tilt[0])}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </OutputCard>
+
+          <OutputCard title="View Calibration Diagnostics">
+            <TermRow
+              k="View 1 match"
+              v={signPct(stats.res1)}
+              tone={resOk(stats.res1) ? 'price' : 'neg'}
+            />
+            <TermRow
+              k="View 2 match"
+              v={signPct(stats.res2)}
+              tone={resOk(stats.res2) ? 'price' : 'neg'}
+            />
+            <TermRow k="Max tilt" v={signPct(maxTilt)} />
+            <TermRow k="Σ|Tilt|" v={signPct(sumTilt)} />
+          </OutputCard>
+
+          <div
+            className={`border px-3 py-2 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.16em] ${profileCls}`}
+          >
+            View calibration profile: {profile}
+          </div>
+        </div>
+
+        <OutputCard title="Equilibrium Pi (EQM)">
+          {BL_NAMES.map((name, i) => (
+            <TermRow key={`eq${i}`} k={name} v={signPct(stats.eq[i])} tone="price" />
+          ))}
+        </OutputCard>
+      </div>
 
       <TermGroup title="Posterior">
         {BL_NAMES.map((name, i) => (
@@ -196,21 +253,16 @@ export default function BlackLittermanPage() {
         <TermRow k="Post Vol Crypto" v={(stats.pv3 * 100).toFixed(1) + '%'} />
       </TermGroup>
 
-      <TermGroup title="View Calibration">
-        <TermRow k="View 1 Match" v={signPct(stats.res1)} tone={Math.abs(stats.res1) < 1e-3 ? 'price' : 'default'} />
-        <TermRow k="View 2 Match" v={signPct(stats.res2)} tone={Math.abs(stats.res2) < 1e-3 ? 'price' : 'default'} />
-      </TermGroup>
-
       {s.view === 'tilt' && (
         <TermGroup title="Tilt (Post − EQM)">
-          <TermRow k="Max Tilt" v={signPct(Math.max(...tilt.tilt.map(Math.abs)))} />
-          <TermRow k="Σ|Tilt|" v={signPct(tilt.tilt.reduce((a, b) => a + Math.abs(b), 0))} />
+          <TermRow k="Max Tilt" v={signPct(maxTilt)} />
+          <TermRow k="Σ|Tilt|" v={signPct(sumTilt)} />
           {BL_NAMES.map((name, i) => (
             <TermRow key={name} k={name} v={signPct(tilt.tilt[i])} tone={tilt.tilt[i] < 0 ? 'neg' : 'price'} />
           ))}
         </TermGroup>
       )}
-    </>
+    </div>
   )
 
   const paramsContent = (
