@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Line, LineChart, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, OutputCard, ParamLabel, Seg, Slider, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -10,7 +10,8 @@ import LiveMarketIngestion from '../components/LiveMarketIngestion'
 import RightSidebar from '../components/RightSidebar'
 import { BS_FORMULAS } from '../lib/formulas'
 import { bs } from '../lib/math'
-import { money } from '../lib/format'
+import { money, pct } from '../lib/format'
+import { InlineMath } from 'react-katex'
 import { useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
@@ -116,36 +117,91 @@ export default function BlackScholesPage() {
     s.set({ S0: params.S0, sig: params.sig })
   }, [s.set])
 
-  const metricsContent = mobile ? (
-    <StatList mobile={mobile}>
-      <Stat k="ATM Price (1Y)" v={money(atmPrice)} tone="price" mobile={mobile} />
-      <Stat k="Spot" v={money(S0)} mobile={mobile} />
-      <Stat k="Strike" v={money(K)} mobile={mobile} />
-      <Stat k="Time" v={T.toFixed(2) + 'y'} mobile={mobile} />
-      <Stat k="Risk-Free" v={s.r.toFixed(1) + '%'} mobile={mobile} />
-      <Stat k="Volatility" v={s.sig.toFixed(1) + '%'} mobile={mobile} />
-      <Stat k="Delta" v={(m ? delta : 0).toFixed(4)} mobile={mobile} />
-      <Stat k="Gamma" v={(m ? m.gamma : 0).toFixed(4)} mobile={mobile} />
-      <Stat k="Vega" v={(m ? m.vega : 0).toFixed(3)} mobile={mobile} />
-      <Stat k="Theta" v={(m ? m.theta : 0).toFixed(3)} mobile={mobile} />
-      <Stat k="Rho" v={(m ? m.rho : 0).toFixed(3)} mobile={mobile} />
-    </StatList>
-  ) : (
-    <>
-      <TermGroup title="Pricing">
-        <TermRow k="ATM Price (1Y)" v={money(atmPrice)} tone="price" />
-        <TermRow k="Call" v={money(m ? m.C : 0)} tone="price" />
-        <TermRow k="Put" v={money(m ? m.P : 0)} tone="price" />
-      </TermGroup>
+  // output-panel detail: decomposition of the selected price + a real model-integrity check
+  const price = m ? (s.opt === 'call' ? m.C : m.P) : 0
+  const intrinsic = s.opt === 'call' ? Math.max(S0 - K, 0) : Math.max(K - S0, 0)
+  const timeVal = price - intrinsic
+  const mny = s.opt === 'call' ? (S0 - K) / K : (K - S0) / K
+  const parityGap = m ? m.C - m.P - (S0 - K * Math.exp(-r * T)) : 0
+  // moneyness profile of the selected option: ≥ +5% ITM, ≥ −5% ATM, else OTM
+  const profile = mny >= 0.05 ? 'ITM' : mny >= -0.05 ? 'ATM' : 'OTM'
+  const profileCls =
+    profile === 'ITM'
+      ? 'border-green/40 bg-green/10 text-green'
+      : profile === 'ATM'
+        ? 'border-accent-mc/40 bg-accent-mc/10 text-accent-mc'
+        : 'border-red/40 bg-red/10 text-red'
 
-      <TermGroup title="Run Config">
-        <TermRow k="Spot S" v={money(S0)} />
-        <TermRow k="Strike K" v={money(K)} />
-        <TermRow k="Type" v={s.opt === 'put' ? 'Put' : 'Call'} />
-        <TermRow k="Horizon" v={`${T.toFixed(2)} yr`} />
-        <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
-        <TermRow k="Volatility σ" v={`${s.sig.toFixed(1)}%`} />
-      </TermGroup>
+  const metricsContent = (
+    <div className="space-y-2">
+      {/* model header: the pricing formula + the run's fixed parameters */}
+      <div className="border border-border bg-[#09090b] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <span className="text-[12px] leading-none text-white">
+            <InlineMath math={String.raw`C = S_0 N(d_1) - K e^{-rT} N(d_2)`} />
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-label">
+            BSM · S₀ {money(S0, 0)} · K {money(K, 0)} · T {T.toFixed(2)} YR · r {s.r.toFixed(1)}% · σ{' '}
+            {s.sig.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+        <OutputCard title="Run Config">
+          <TermRow k="Spot S" v={money(S0)} />
+          <TermRow k="Strike K" v={money(K)} />
+          <TermRow k="Type" v={s.opt === 'put' ? 'Put' : 'Call'} />
+          <TermRow k="Horizon" v={`${T.toFixed(2)} yr`} />
+          <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
+          <TermRow k="Volatility σ" v={`${s.sig.toFixed(1)}%`} />
+        </OutputCard>
+
+        <div className="space-y-2">
+          <OutputCard title={`${s.opt === 'call' ? 'Call' : 'Put'} Price — Decomposition`}>
+            <div className="py-1 text-center">
+              <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-label">
+                {s.opt === 'call' ? 'Call' : 'Put'} (S, K, T)
+              </div>
+              <div className="mt-0.5 font-mono text-[26px] font-bold tabular-nums text-green">{money(price)}</div>
+              <div className="mt-1.5 flex justify-center gap-8">
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">Intrinsic</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-white">
+                    {money(intrinsic)}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">Time value</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-green">
+                    {money(timeVal)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </OutputCard>
+
+          <OutputCard title="Option Diagnostics">
+            <TermRow k="Put-call parity gap" v={money(parityGap)} tone={Math.abs(parityGap) < 0.005 ? 'price' : 'neg'} />
+            <TermRow k="ATM price (1Y)" v={money(atmPrice)} tone="price" />
+            <TermRow k="Moneyness (S−K)/K" v={pct(mny, 1)} tone={mny >= 0 ? 'price' : 'neg'} />
+            <TermRow k="d₁" v={(m ? m.d1 : 0).toFixed(4)} />
+            <TermRow k="d₂" v={(m ? m.d2 : 0).toFixed(4)} />
+          </OutputCard>
+
+          <div
+            className={`border px-3 py-2 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.16em] ${profileCls}`}
+          >
+            Moneyness profile: {profile}
+          </div>
+        </div>
+
+        <OutputCard title="Pricing">
+          <TermRow k="ATM Price (1Y)" v={money(atmPrice)} tone="price" />
+          <TermRow k="Call" v={money(m ? m.C : 0)} tone="price" />
+          <TermRow k="Put" v={money(m ? m.P : 0)} tone="price" />
+        </OutputCard>
+      </div>
 
       <TermGroup title="Greeks">
         <TermRow k="Delta" v={(m ? delta : 0).toFixed(4)} />
@@ -154,7 +210,7 @@ export default function BlackScholesPage() {
         <TermRow k="Theta" v={(m ? m.theta : 0).toFixed(3)} />
         <TermRow k="Rho" v={(m ? m.rho : 0).toFixed(3)} />
       </TermGroup>
-    </>
+    </div>
   )
 
   const paramsContent = (
