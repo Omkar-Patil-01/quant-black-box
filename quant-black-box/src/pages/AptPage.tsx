@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, OutputCard, ParamLabel, Seg, Slider, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -11,6 +11,7 @@ import { APT_FORMULAS } from '../lib/formulas'
 import { aptRet } from '../lib/math'
 import type { AptParams } from '../lib/math'
 import { pct } from '../lib/format'
+import { InlineMath } from 'react-katex'
 import { useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
@@ -88,21 +89,79 @@ export default function AptPage() {
     })
   }, [s.r, s.lam, s.lams, s.lamv, s.b3, s.al, s.metric])
 
-  const metricsContent = mobile ? (
-    <StatList mobile={mobile}>
-      <Stat k="Risk-Free" v={pct(params.r, 2)} tone="price" mobile={mobile} />
-      <Stat k="Mkt Premium" v={pct(params.lam, 2)} tone="price" mobile={mobile} />
-      <Stat k="Size Premium" v={pct(params.lams, 2)} tone="price" mobile={mobile} />
-      <Stat k="Value Premium" v={pct(params.lamv, 2)} tone="price" mobile={mobile} />
-      <Stat k="Beta HML" v={params.b3.toFixed(2)} mobile={mobile} />
-      <Stat k="Alpha" v={pct(params.al, 2)} tone="price" mobile={mobile} />
-      <Stat k="Fair Return" v={pct(stats.fair)} tone="price" mobile={mobile} />
-      <Stat k="Alpha-Adj" v={pct(stats.aadj)} tone="price" mobile={mobile} />
-      <Stat k="Zero-Beta" v={pct(stats.zb)} mobile={mobile} />
-      <Stat k="Slope ∂E/∂βM" v={'+' + (params.lam * 100).toFixed(2) + '%'} mobile={mobile} />
-    </StatList>
-  ) : (
-    <>
+  // alpha drives the profile badge: |α| ≥ 0.5% → ALPHA PREMIUM / ALPHA DISCOUNT, else FAIRLY PRICED
+  const profile = params.al >= 0.005 ? 'ALPHA PREMIUM' : params.al <= -0.005 ? 'ALPHA DISCOUNT' : 'FAIRLY PRICED'
+  const profileCls =
+    params.al >= 0.005
+      ? 'border-green/40 bg-green/10 text-green'
+      : params.al <= -0.005
+        ? 'border-red/40 bg-red/10 text-red'
+        : 'border-accent-mc/40 bg-accent-mc/10 text-accent-mc'
+
+  const metricsContent = (
+    <div className="space-y-2">
+      {/* model header: the APT return formula + the run's fixed parameters */}
+      <div className="border border-border bg-[#09090b] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <span className="text-[12px] leading-none text-white">
+            <InlineMath math={String.raw`\mathbb{E}[R] = r + \beta_M \lambda_M + \beta_S \lambda_S + \beta_V \lambda_V`} />
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-label">
+            APT · r {s.r.toFixed(1)}% · λM {s.lam.toFixed(1)}% · λS {s.lams.toFixed(1)}% · λV {s.lamv.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+        <OutputCard title="Run Config">
+          <TermRow k="Risk-Free r" v={pct(params.r, 2)} tone="price" />
+          <TermRow k="Mkt Premium λM" v={pct(params.lam, 2)} tone="price" />
+          <TermRow k="Size Premium λS" v={pct(params.lams, 2)} tone="price" />
+          <TermRow k="Value Premium λV" v={pct(params.lamv, 2)} tone="price" />
+          <TermRow k="Beta HML β3" v={params.b3.toFixed(2)} />
+          <TermRow k="Alpha α" v={pct(params.al, 2)} tone={params.al < 0 ? 'neg' : 'price'} />
+        </OutputCard>
+
+        <div className="space-y-2">
+          <OutputCard title="Fair Return — βM 1.0 / βS 0.5">
+            <div className="py-1 text-center">
+              <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-label">Fair Return</div>
+              <div className="mt-0.5 font-mono text-[26px] font-bold tabular-nums text-green">{pct(stats.fair)}</div>
+              <div className="mt-1.5 flex justify-center gap-8">
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">Alpha-Adj</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-white">{pct(stats.aadj)}</div>
+                </div>
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">Zero-Beta</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-white">{pct(stats.zb)}</div>
+                </div>
+              </div>
+            </div>
+          </OutputCard>
+
+          <OutputCard title="Factor Diagnostics">
+            <TermRow k="Slope ∂E/∂βM" v={'+' + (params.lam * 100).toFixed(2) + '%'} />
+            <TermRow k="Alpha contribution" v={pct(params.al, 2)} tone={params.al < 0 ? 'neg' : 'price'} />
+            <TermRow k="Premia stack" v={pct(params.lam + params.lams + params.lamv, 2)} tone="price" />
+            <TermRow k="Total expected" v={pct(stats.fair)} tone="price" />
+          </OutputCard>
+
+          <div
+            className={`border px-3 py-2 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.16em] ${profileCls}`}
+          >
+            Alpha profile: {profile}
+          </div>
+        </div>
+
+        <OutputCard title="Model Output">
+          <TermRow k="Fair Return" v={pct(stats.fair)} tone="price" />
+          <TermRow k="Alpha-Adj" v={pct(stats.aadj)} tone="price" />
+          <TermRow k="Zero-Beta" v={pct(stats.zb)} />
+          <TermRow k="Slope ∂E/∂βM" v={'+' + (params.lam * 100).toFixed(2) + '%'} />
+        </OutputCard>
+      </div>
+
       <TermGroup title="Factor Premia">
         <TermRow k="Risk-Free" v={pct(params.r, 2)} tone="price" />
         <TermRow k="Mkt Premium" v={pct(params.lam, 2)} tone="price" />
@@ -114,14 +173,7 @@ export default function AptPage() {
         <TermRow k="Beta HML" v={params.b3.toFixed(2)} />
         <TermRow k="Alpha" v={pct(params.al, 2)} tone="price" />
       </TermGroup>
-
-      <TermGroup title="Model Output">
-        <TermRow k="Fair Return" v={pct(stats.fair)} tone="price" />
-        <TermRow k="Alpha-Adj" v={pct(stats.aadj)} tone="price" />
-        <TermRow k="Zero-Beta" v={pct(stats.zb)} />
-        <TermRow k="Slope ∂E/∂βM" v={'+' + (params.lam * 100).toFixed(2) + '%'} />
-      </TermGroup>
-    </>
+    </div>
   )
 
   const paramsContent = (
