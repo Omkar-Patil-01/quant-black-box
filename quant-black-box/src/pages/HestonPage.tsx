@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Header, LeftPanel, ModelShell, ParamsReveal, Tier1Nav, Tier2Nav, BottomSheet, BottomMobileDock, MobileCanvasControls } from '../components/layout'
-import { Accordion, Chip, Hint, ParamLabel, Seg, Select, Slider, Stat, StatList, TermGroup, TermRow, useHotkeys } from '../components/ui'
+import { Accordion, Chip, Hint, OutputCard, ParamLabel, Seg, Select, Slider, TermGroup, TermRow, useHotkeys } from '../components/ui'
 import PathChart from '../components/PathChart'
 import type { PathChartHandle } from '../components/PathChart'
+import FanChart from '../components/FanChart'
 import SurfaceChart from '../components/SurfaceChart'
 import type { SurfacePoint } from '../components/SurfaceChart'
 import DisplayControls from '../components/DisplayControls'
@@ -10,9 +11,10 @@ import FormulaModal from '../components/FormulaModal'
 import LiveMarketIngestion from '../components/LiveMarketIngestion'
 import RightSidebar from '../components/RightSidebar'
 import { HESTON_FORMULAS } from '../lib/formulas'
-import { hestonP1, hestonPrice, hestonSimStats, simulateHeston } from '../lib/math'
+import { HESTON_STEPS, hestonP1, hestonPrice, hestonSimStats, simulateHeston, sortedQuantile, sortedTailMean } from '../lib/math'
 import type { HestonParams } from '../lib/math'
 import { money, pct } from '../lib/format'
+import { InlineMath } from 'react-katex'
 import { useDebounced, useIsMobile } from '../lib/hooks'
 import { useApp } from '../store/app'
 import { useWorkspace } from '../store/workspace'
@@ -135,6 +137,30 @@ export default function HestonPage() {
 
   const simStats = useMemo(() => hestonSimStats(sim), [sim])
 
+  // output-panel detail: real quantiles off the sorted terminal array
+  const cvar5 = useMemo(() => sortedTailMean(sim.term, 0.05), [sim])
+  const p25 = useMemo(() => sortedQuantile(sim.term, 0.25), [sim])
+  const p75 = useMemo(() => sortedQuantile(sim.term, 0.75), [sim])
+  const avgDD = useMemo(() => sim.dd.reduce((a, b) => a + b, 0) / sim.N, [sim])
+  // percentile-fan series: real paths at fixed terminal percentiles
+  const fan = useMemo(() => {
+    const pick = (p: number) => sim.price[Math.min(sim.N - 1, Math.floor((sim.N - 1) * p))]
+    return [
+      { name: '95TH BULL', data: pick(0.95), color: '#22d3ee' },
+      { name: '50TH MEDIAN', data: pick(0.5), color: '#10b981' },
+      { name: '5TH BEAR', data: pick(0.05), color: '#dc2626' },
+    ]
+  }, [sim])
+  // profile label from capital-preservation probability: ≥90% SECURE, ≥60% BALANCED, else AT-RISK
+  const pPreserve = 1 - simStats.losses
+  const profile = pPreserve >= 0.9 ? 'SECURE' : pPreserve >= 0.6 ? 'BALANCED' : 'AT-RISK'
+  const profileCls =
+    profile === 'SECURE'
+      ? 'border-green/40 bg-green/10 text-green'
+      : profile === 'BALANCED'
+        ? 'border-accent-mc/40 bg-accent-mc/10 text-accent-mc'
+        : 'border-red/40 bg-red/10 text-red'
+
   const highlights = useMemo(() => {
     const N = sim.N
     return [
@@ -205,40 +231,81 @@ export default function HestonPage() {
     s.set({ S0: params.S0, v0: params.sig })
   }, [s.set])
 
-  const metricsContent = mobile ? (
-    <>
-      <StatList mobile={mobile}>
-        <Stat k="ATM Call (1Y)" v={money(stats.atm)} tone="price" mobile={mobile} />
-        <Stat k="Call" v={money(stats.call)} tone="price" mobile={mobile} />
-        <Stat k="Put" v={money(stats.put)} tone="price" mobile={mobile} />
-        <Stat k="Forward Vol" v={(stats.fvol * 100).toFixed(1) + '%'} mobile={mobile} />
-        <Stat k="Feller" v={stats.feller.toFixed(2) + (stats.feller > 1 ? ' ✓' : ' ⚠')} mobile={mobile} />
-        <Stat k="Delta" v={stats.delta.toFixed(4)} mobile={mobile} />
-        <Stat k="Gamma" v={stats.gamma.toFixed(4)} mobile={mobile} />
-        <Stat k="Vega" v={stats.vega.toFixed(3)} mobile={mobile} />
-        <Stat k="Theta" v={stats.theta.toFixed(3)} mobile={mobile} />
-        <Stat k="Rho" v={stats.rho.toFixed(3)} mobile={mobile} />
-      </StatList>
-      {s.view === 'paths' && (
-        <div className="border-t border-line px-3.5 pb-3.5 pt-3">
-          <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-label">
-            Simulation ({sim.N} paths)
-          </div>
-          <StatList mobile={mobile}>
-            <Stat k="E[PRICE]" v={money(simStats.mean)} tone="price" mobile={mobile} />
-            <Stat k="Median" v={money(simStats.median)} tone="price" mobile={mobile} />
-            <Stat k="VaR 5%" v={money(simStats.var5)} tone="neg" mobile={mobile} />
-            <Stat k="95th" v={money(simStats.p95)} tone="price" mobile={mobile} />
-            <Stat k="P(LOSS)" v={(simStats.losses * 100).toFixed(1) + '%'} mobile={mobile} />
-            <Stat k="95% CI" v={'± ' + money(simStats.ci95)} mobile={mobile} />
-            <Stat k="E[VOL]" v={(simStats.eVol * 100).toFixed(1) + '%'} mobile={mobile} />
-            <Stat k="Max DD" v={pct(simStats.maxDD)} tone="neg" mobile={mobile} />
-          </StatList>
+  const metricsContent = (
+    <div className="space-y-2">
+      {/* model header: the Heston SDE pair + the run's fixed parameters */}
+      <div className="border border-border bg-[#09090b] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <span className="text-[12px] leading-none text-white">
+            <InlineMath math={String.raw`dS_t = r S_t\,dt + \sqrt{v_t}\,S_t\,dW_t`} />
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-label">
+            HESTON SV · Δt = {(T / HESTON_STEPS).toFixed(3)} YR · N = {sim.N} PATHS · SEED {s.seed}
+          </span>
         </div>
-      )}
-    </>
-  ) : (
-    <>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+        <OutputCard title="Run Config">
+          <TermRow k="Spot S₀" v={money(S0)} />
+          <TermRow k="Strike K" v={money(K)} />
+          <TermRow k="Type" v={s.opt === 'put' ? 'Put' : 'Call'} />
+          <TermRow k="Horizon" v={`${T.toFixed(2)} yr`} />
+          <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
+          <TermRow k="Init vol v₀" v={`${s.v0.toFixed(1)}%`} />
+          <TermRow k="Mean rev κ" v={params.kappa.toFixed(2)} />
+          <TermRow k="Long vol θ" v={`${s.theta.toFixed(1)}%`} />
+          <TermRow k="Vol-of-vol σᵥ" v={`${s.sigv.toFixed(1)}%`} />
+          <TermRow k="Correlation ρ" v={params.rho.toFixed(2)} />
+          <TermRow k="Paths N" v={String(sim.N)} />
+          <TermRow k="Seed" v={String(s.seed)} />
+        </OutputCard>
+
+        <div className="space-y-2">
+          <OutputCard title="Terminal Price — Median Path">
+            <div className="py-1 text-center">
+              <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-label">Median (50th)</div>
+              <div className="mt-0.5 font-mono text-[26px] font-bold tabular-nums text-green">
+                {money(simStats.median)}
+              </div>
+              <div className="mt-1.5 flex justify-center gap-8">
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">95th (Bull)</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-white">
+                    {money(simStats.p95)}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-label">5th (Bear)</div>
+                  <div className="font-mono text-[14px] font-semibold tabular-nums text-red">
+                    {money(simStats.var5)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </OutputCard>
+
+          <OutputCard title="Path-Dependent Downside Diagnostics">
+            <TermRow k="Avg max drawdown" v={pct(avgDD)} tone="neg" />
+            <TermRow k="Capital preservation" v={(pPreserve * 100).toFixed(1) + '%'} bar={pPreserve} />
+            <TermRow k="Initial spot base" v={money(S0)} />
+          </OutputCard>
+
+          <div
+            className={`border px-3 py-2 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.16em] ${profileCls}`}
+          >
+            Probabilistic future profile: {profile}
+          </div>
+        </div>
+
+        <OutputCard title="Percentile Fan — Terminal 5th / 50th / 95th">
+          <FanChart series={fan} T={sim.T} yFmt={(v) => money(v, 0)} />
+          <p className="mt-1 font-mono text-[8.5px] leading-relaxed text-label">
+            Bands are real simulated paths at the 5th, 50th and 95th terminal percentile — no fitted curves.
+          </p>
+        </OutputCard>
+      </div>
+
       <TermGroup title="Pricing">
         <TermRow k="ATM Call (1Y)" v={money(stats.atm)} tone="price" />
         <TermRow k="Call" v={money(stats.call)} tone="price" />
@@ -255,32 +322,20 @@ export default function HestonPage() {
         <TermRow k="Rho" v={stats.rho.toFixed(3)} />
       </TermGroup>
 
-      <TermGroup title="Run Config">
-        <TermRow k="Spot S₀" v={money(S0)} />
-        <TermRow k="Strike K" v={money(K)} />
-        <TermRow k="Type" v={s.opt === 'put' ? 'Put' : 'Call'} />
-        <TermRow k="Horizon" v={`${T.toFixed(2)} yr`} />
-        <TermRow k="Risk-free r" v={`${s.r.toFixed(1)}%`} />
-        <TermRow k="Init vol v₀" v={`${s.v0.toFixed(1)}%`} />
-        <TermRow k="Mean rev κ" v={params.kappa.toFixed(2)} />
-        <TermRow k="Long vol θ" v={`${s.theta.toFixed(1)}%`} />
-        <TermRow k="Vol-of-vol σᵥ" v={`${s.sigv.toFixed(1)}%`} />
-        <TermRow k="Correlation ρ" v={params.rho.toFixed(2)} />
-        <TermRow k="Paths N" v={String(sim.N)} />
-        <TermRow k="Seed" v={String(s.seed)} />
-      </TermGroup>
-
       <TermGroup title={`Terminal Distribution (${sim.N} paths)`}>
         <TermRow k="Mean" v={money(simStats.mean)} tone="price" />
         <TermRow k="Median" v={money(simStats.median)} tone="price" />
         <TermRow k="VaR 5%" v={money(simStats.var5)} tone="neg" />
+        <TermRow k="CVaR 5%" v={money(cvar5)} tone="neg" />
+        <TermRow k="P25" v={money(p25)} />
+        <TermRow k="P75" v={money(p75)} />
         <TermRow k="P95" v={money(simStats.p95)} tone="price" />
         <TermRow k="P(loss)" v={(simStats.losses * 100).toFixed(1) + '%'} tone="neg" />
         <TermRow k="CI 95" v={`±${money(simStats.ci95)}`} />
         <TermRow k="E[VOL]" v={(simStats.eVol * 100).toFixed(1) + '%'} />
         <TermRow k="Max DD" v={pct(simStats.maxDD)} tone="neg" />
       </TermGroup>
-    </>
+    </div>
   )
 
   const paramsContent = (
